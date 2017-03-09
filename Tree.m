@@ -125,7 +125,6 @@ classdef Tree
                 
                 node = drawrule(node);
                 
-                
                 if ~isempty(node.Rule)
                     % Put updated node in tree
                     out.Allnodes{birthindex} = node;  
@@ -325,7 +324,7 @@ classdef Tree
            % Get rid of children on parent node
            node.Lchild = [];
            node.Rchild = [];
-           node = newrule(node,[]);
+           node.Rule = [];
            out.Allnodes{nodeindex} = node; % update node
            % Update likelihood if necessary
            if node.Updatellike
@@ -607,7 +606,6 @@ classdef Tree
                 treelines(obj,node.Rchild,level-1,treedepth,xval,'R')
             end
         end
-        
         
         function Treeplot(obj)
             nn = length(obj.Allnodes);
