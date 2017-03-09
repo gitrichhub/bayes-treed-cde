@@ -12,19 +12,22 @@ classdef Tree
         ygridn
         m % grid points for y
         Lliketree % Tree log-likelihood
-        %Leafmin % minimum number of values at a leaf
+       
+        Leafmin % minimum number of values at a leaf
     end
     methods
         % Constructor
-        function out = Tree(y,X)
+        function out = Tree(y,X,Leafmin)
             % Store data
             % out.X = X;
             % Create root node
-            rootnode = Nodes(0,[],[],[],[],1:size(X,1));
+            rootnode = Nodes(0,[],[],[],[],1:size(X,1),0);
             out.Allnodes{1} = rootnode;
-%             if ~isempty(Leafmin)
-%                 out.Leafmin = Leafmin;
-%             end
+            if ~isempty(Leafmin) && Leafmin > 0
+                out.Leafmin = Leafmin;
+            else
+                out.Leafmin = 25;
+            end
             out.NodeIds = 0;
             out.Emptynodes = 0;
             out.Varnames = X.Properties.VariableNames;
@@ -94,6 +97,10 @@ classdef Tree
             
         % Birth Function
         function out = birth(obj,y,X)
+            % obj: an object of class "Tree"
+            % y: a vector of the response variable
+            % X: a matrix of the predictors
+            
             out = obj;
             % Get Terminal Node indices and IDs
             [Ind,tnodeIDs] = termnodes(obj);
@@ -110,11 +117,17 @@ classdef Tree
                 % Xind = nodeData(obj,birthindex);
                 % Determine Split Rule based on data
 
-                node = obj.Allnodes{birthindex};
-                nrule = drawrule(node,obj,X,0);
-                if ~isempty(nrule)
-                    % Assign new rule
-                    node = newrule(node,nrule);
+                node = obj.Allnodes{birthindex}; % birth node
+                % Determine split rules, if necessary
+                if node.Updatesplits == 1
+                    node = getsplits(node,X,obj.Leafmin);
+                end
+                
+                node = drawrule(node);
+                
+                
+                if ~isempty(node.Rule)
+                    % Put updated node in tree
                     out.Allnodes{birthindex} = node;  
 
                     % Add children nodes;
@@ -123,15 +136,15 @@ classdef Tree
                     % Get data which is being passed down from parent
                     [XindL,XindR] = childrendata(out,birthID,X); % must use out since it has the new rule
                     % Add Nodes
-                    childnode1 = Nodes(newids(1),birthID,[],[],[],XindL);
-                    childnode2 = Nodes(newids(2),birthID,[],[],[],XindR);
+                    newdepth = node.Depth + 1;
+                    childnode1 = Nodes(newids(1),birthID,[],[],[],XindL,newdepth);
+                    childnode2 = Nodes(newids(2),birthID,[],[],[],XindR,newdepth);
                     out = addnode(out,childnode1,birthindex,'L',y);
                     out = addnode(out,childnode2,birthindex,'R',y);
                     % Update log-likelihood
                     nn = nnodes(out);
                     out.Lliketree = out.Lliketree - node.Llike + ...
                         out.Allnodes{nn-1}.Llike + out.Allnodes{nn}.Llike;
-                    
                     return;
                 end
             end
@@ -406,15 +419,15 @@ classdef Tree
         function [XindL,XindR,empty] = childrendata(obj,nodeid,X)
             nind = nodeind(obj,nodeid);
             node = obj.Allnodes{nind};
-            therule = node.Rule; % SplitRule class object
+            therule = node.Rule; 
             if isempty(therule)
                 error('No rule specified for the node.')
             end
-            if strcmp(therule.Varclass,'double')
+            if strcmp(obj.Xclass(therule{1}),'double')
                 %I = find(table2array(X(node.Xind,therule.Varcol)) <= therule.Varrule);
-                I = table2array(X(node.Xind,therule.Varcol)) <= therule.Varrule ;
-            elseif strcmp(therule.Varclass,'cell')
-                I = ismember(table2cell(X(node.Xind,therule.Varcol)),therule.Varrule);
+                I = table2array(X(node.Xind,therule{1})) <= therule{2} ;
+            elseif strcmp(obj.Xclass(therule{1}),'cell')
+                I = ismember(table2cell(X(node.Xind,therule{1})),therule{2});
             else
                 error('Unexpected variable class found.')
             end
@@ -570,16 +583,16 @@ classdef Tree
             % Plot the rule of the parent
             if ~isempty(node.Rule) % if parent node
                 
-                colnum = node.Rule.Varcol;
+                colnum = node.Rule{1};
                 colname = obj.Varnames(colnum);
-                if strcmp(node.Rule.Varclass,'double')
-                    ruletext = strcat(colname,' \leq ',num2str(node.Rule.Varrule));
+                if strcmp(obj.Xclass(node.Rule{1}),'double')
+                    ruletext = strcat(colname,' \leq ',num2str(node.Rule{2}));
                 else
-                    for ii=1:length(node.Rule.Varrule)
+                    for ii=1:length(node.Rule{2})
                         if ii == 1
-                            grp = node.Rule.Varrule{ii};
+                            grp = node.Rule{2}{ii};
                         else
-                            grp = strcat(grp,' , ',node.Rule.Varrule{ii});
+                            grp = strcat(grp,' , ',node.Rule{2}{ii});
                         end
                     end
                     ruletext = strcat(colname,' \in \{',grp,'\}');
