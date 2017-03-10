@@ -11,13 +11,14 @@ classdef Tree
         ygrid
         ygridn
         m % grid points for y
-        Lliketree % Tree log-likelihood
-       
+        Lliketree % Tree log-likelihood       
         Leafmin % minimum number of values at a leaf
+        gamma
+        beta
     end
     methods
         % Constructor
-        function out = Tree(y,X,Leafmin)
+        function out = Tree(y,X,Leafmin,gamma,beta)
             % Store data
             % out.X = X;
             % Create root node
@@ -40,6 +41,16 @@ classdef Tree
             ygridn = zscore(ygrid); % normalized ygrid;
             out.ygrid = ygrid;
             out.ygridn = ygridn;
+            if gamma > 0 && gamma < 1
+                out.gamma = gamma;
+            else
+                error('gamma must be between 0 and 1')
+            end
+            if beta >= 0
+                out.beta = beta;
+            else
+                error('beta must be >= 0')
+            end
             
             
             % Get column types
@@ -96,7 +107,7 @@ classdef Tree
         end
             
         % Birth Function
-        function out = birth(obj,y,X)
+        function [out,birthindex] = birth(obj,y,X)
             % obj: an object of class "Tree"
             % y: a vector of the response variable
             % X: a matrix of the predictors
@@ -151,7 +162,8 @@ classdef Tree
         end
         
         % Prune Function
-        function out = prune(obj,y)
+        % pind is the pruned node's index in the original obj (tree)
+        function [out,pind] = prune(obj,y)
             if length(obj.Allnodes) > 1
                 % Find parents of two-terminal nodes
                 [I,~] = terminalparents(obj);
@@ -345,7 +357,7 @@ classdef Tree
             elseif strcmp(LR,'R')
                 out.Allnodes{parentind}.Rchild = node.Id;
             else
-                error('LR must be either "L" or "R"');
+                error('LR arg must be either "L" or "R"');
             end
             % Calculate log-likelihood of new node
             out = llike(out,node.Id,y);
@@ -491,10 +503,12 @@ classdef Tree
         function [I,ids] = terminalparents(obj)
             % Find Term Nodes
             [I,~] = termnodes(obj);
-            % If only the root node, return the root node.
+            % If only the root node, return empty things
             if length(I) < 2 && length(obj.Allnodes) < 2
-                I = 1;
-                ids = obj.Allnodes{I}.Id;
+                %I = 1;
+                %ids = obj.Allnodes{I}.Id;
+                I = [];
+                ids = [];
                 return
             end
 
@@ -549,6 +563,24 @@ classdef Tree
                 error('No node with that ID found')
             end
         end
+        
+        % Evaluate the prior on the tree (obj)
+        function lprior = prior_eval(obj)
+            lprior = 0;
+            for ii=1:length(obj.Allnodes)
+                % prior on depth
+                node = obj.Allnodes{ii};
+                d = node.Depth;
+                if ~isempty(node.Rule) % if not a terminal node
+                    lprior = lprior + log(obj.gamma) - obj.beta*log(1 + d) - ...
+                        log(sum(node.nSplits));
+                else % if a terminal node
+                    lprior = lprior + log(1 - obj.gamma/(1 + d)^obj.beta);
+                end                   
+            end
+        end
+            
+        
         
         % Graphs
         function treelines(obj,nodename,level,treedepth,parentxloc,LR)

@@ -121,10 +121,10 @@ classdef Nodes
 %             end
 %         end
         
-        % select rule for factors
-        function out = factrule(obj)
-            out.Xind
-        end
+%         % select rule for factors
+%         function out = factrule(obj)
+%             out.Xind
+%         end
         
         % Draw a new rule from the prior
         function out = drawrule(node) % obj is a Tree class object
@@ -305,26 +305,26 @@ classdef Nodes
                         % group = thetab(:,1);
                         ngroup = size(thetab,1);
                         gdiv2 = floor(ngroup/2); % ngroup/2 and rounded down
-                        if all(cell2mat(thetab(:,2)) > leafmin) % Easy Case
-                            ncombn = zeros(gdiv2,1);
-                            for jj = 1:gdiv2
-                                ncombn(jj) = nchoosek(ngroup,jj);
-                            end
-                            nsplits = sum(ncombn);
-                        else
-                            % More comptuationally demanding case
-                            for jj = 1:gdiv2
-                                cmat = combnk(1:ngroup,jj);
-                                for kk = 1:size(cmat,1)
-                                    ngroup1 = sum(cell2mat(thetab(cmat(kk,:),2)));
-                                    ngroup2 = nsub - ngroup1;
-                                    if ngroup1 > leafmin && ngroup2 > leafmin
-                                        nsplits = nsplits + 1;
-                                        svals{nsplits} = thetab(cmat(kk,:),1);
-                                    end
+%                         if all(cell2mat(thetab(:,2)) > leafmin) % Easy Case
+%                             ncombn = zeros(gdiv2,1);
+%                             for jj = 1:gdiv2
+%                                 ncombn(jj) = nchoosek(ngroup,jj);
+%                             end
+%                             nsplits = sum(ncombn);
+%                         else
+                        % More comptuationally demanding case
+                        for jj = 1:gdiv2
+                            cmat = combnk(1:ngroup,jj);
+                            for kk = 1:size(cmat,1)
+                                ngroup1 = sum(cell2mat(thetab(cmat(kk,:),2)));
+                                ngroup2 = nsub - ngroup1;
+                                if ngroup1 > leafmin && ngroup2 > leafmin
+                                    nsplits = nsplits + 1;
+                                    svals{nsplits} = thetab(cmat(kk,:),1);
                                 end
                             end
                         end
+                        %end
                     elseif length(unique(xsub)) == 2 && all(cell2mat(thetab(:,2)) > leafmin)
                         nsplits = 1;
                     end
