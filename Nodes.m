@@ -58,10 +58,10 @@ classdef Nodes
             
             % Assign the split rule for the node
             if iscell(Rule)
-                if length(Rule) == 3
+                if length(Rule) == 2
                     obj.Rule = Rule;
                 else 
-                    error('Rule must be of length 3.')
+                    error('Rule must be of length 2.')
                 end
             elseif isempty(Rule)
             else 
@@ -137,7 +137,13 @@ classdef Nodes
                 vindex = out.nSplits > 0;
                 vind = randsample(find(vindex),1); % Variable index
                 % Now randomly sample a rule
-                out.Rule = {vind,randsample(out.Splitvals{vind},1)};
+                svals = out.Splitvals{vind};
+                if isa(svals,'cell')
+                    newrule = svals{randsample(length(svals),1)};
+                else
+                    newrule = svals(randsample(length(svals),1));
+                end
+                out.Rule = {vind,newrule};
             end % else leave rule empty
         end
         

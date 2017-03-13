@@ -5,7 +5,7 @@ classdef Tree
         NodeIds % A vector with the Ids of the nodes in Allnodes
         Xclass % column types
         ncol
-        Emptynodes
+        Smallnodes
         Varnames
         GP % Default GP structure
         ygrid
@@ -30,7 +30,7 @@ classdef Tree
                 out.Leafmin = 25;
             end
             out.NodeIds = 0;
-            out.Emptynodes = 0;
+            out.Smallnodes = 0;
             out.Varnames = X.Properties.VariableNames;
             % ygrid
             out.m = 400;
@@ -96,7 +96,8 @@ classdef Tree
             out.Lliketree = out.Allnodes{1}.Llike;
         end
         
-        % Calculate log-likelihood of a node
+        % Calculate log-likelihood of a node and updates the node
+        %   in the tree.
         function out = llike(obj,nodename,y)
             nind = nodeind(obj,nodename);
             out = obj;
@@ -105,6 +106,23 @@ classdef Tree
             thenode.Updatellike = 0; 
             out.Allnodes{nind} = thenode;
         end
+        
+        % Calculate the likelihood of all the terminal
+        %   nodes and update the tree log-likelihood
+        function out = llike_termnodes(obj,y)
+            out = obj;
+            % Update log-likelihood on terminal nodes which need updating
+            % Also update Lliketree
+            out.Lliketree = 0;
+            [I,Ids] = termnodes(out);
+            for jj=1:length(Ids)
+                if out.Allnodes{I(jj)}.Updatellike
+                     out = llike(out,Ids(jj),y);
+                end
+                out.Lliketree = out.Lliketree + out.Allnodes{I(jj)}.Llike;
+            end
+        end
+        
             
         % Birth Function
         function [out,birthindex] = birth(obj,y,X)
@@ -180,7 +198,7 @@ classdef Tree
             end
         end
         
-        % Change Function
+        % Change Function (Currently with CART implementation - draw from prior)
         function out = change(obj,y,X)
             % Find interior nodes
             [I,~] = interiornodes(obj);
@@ -188,121 +206,337 @@ classdef Tree
                 error('Cannot perform a change step on a root node with no children.')
             end
             
-            % Generate a new split rule from the prior (CART)
-            notok = 1;
-            cntr = 0;
-            maxiter = 100;
-            colind = 0; % Choose a random column in drawrule function for first time;
-            out = obj;
-            while notok
-                % Randomly select an interior node to change the rule
-                changeind = randsample(I,1);
-                
-                % Reset on each iteration...
+            if length(I) > 1
+                changeind_rand = randsample(I,length(I));
+            else
+                changeind_rand = I;
+            end
+            for ii = 1:length(I); % For each interior node
+                changeind = changeind_rand(ii);
                 node = obj.Allnodes{changeind};
-                out = obj;
-                [nrule, colind] = drawrule(node,obj,X,colind);
-                node = newrule(node,nrule);
-                out.Allnodes{changeind} = node;
-                out.Emptynodes = 0;
-                out = descendentdata(out,node.Id,X);
-                if out.Emptynodes == 0
-                    notok = 0;
+                % Choose a variable to split on
+                varind = find(node.nSplits > 0); % index on available variables
+                % Randomly order available variables
+                if length(varind) > 1
+                    varind_rand = randsample(varind,length(varind));
+                else
+                    varind_rand = varind;
                 end
-                cntr = cntr + 1;
-                if cntr > maxiter
-                    error('Change step could not find a satisfactory rule in 100 iterations')
-                end               
-            end
-            % Update log-likelihood on terminal nodes which need updating
-            % Also update the Tree log-likelihood
-            out.Lliketree = 0;
-            [I,Ids] = termnodes(out);
-            for ii=1:length(Ids)
-                if out.Allnodes{I(ii)}.Updatellike
-                    out = llike(out,Ids(ii),y);
+                for jj = 1:length(varind_rand) % For each available variable
+                    vind = varind_rand(jj);
+                    rules = node.Splitvals{vind};
+                    % Rearrange rules
+                    rules_rand = rules(randsample(length(rules),length(rules)));
+                    for kk = 1:length(rules_rand)
+                        if isa(rules_rand,'cell')
+                            newrule = rules_rand{kk};
+                        else
+                            newrule = rules_rand(kk);
+                        end
+                        % For each possible rule
+                        nodestar = node;
+                        treestar = obj;
+                        nodestar.Rule = {vind,newrule};
+                        treestar.Allnodes{changeind} = nodestar;
+                        % Check to see if rule leaves a tree with enough 
+                        %   observations at each terminal node.
+                        treestar = descendentdata(treestar,nodestar.Id,X);
+                        if treestar.Smallnodes == 0
+                            % Compute log-likelihood
+                            treestar = llike(treestar,nodestar.Lchild,y);
+                            treestar = llike(treestar,nodestar.Rchild,y);
+                            out = treestar;
+                            return;
+                        end % otherwise try again
+                    end
                 end
-                out.Lliketree = out.Lliketree + out.Allnodes{I(ii)}.Llike;
             end
+            
+                
+            
+            
+            
+            
+            
+            
+%             % Generate a new split rule from the prior (CART)
+%             notok = 1;
+%             cntr = 0;
+%             maxiter = 100;
+%             colind = 0; % Choose a random column in drawrule function for first time;
+%             out = obj;
+%             while notok
+%                 % Randomly select an interior node to change the rule
+%                 changeind = randsample(I,1);
+%                 
+%                 % Reset on each iteration...
+%                 node = obj.Allnodes{changeind};
+%                 out = obj;
+%                 [nrule, colind] = drawrule(node,obj,X,colind);
+%                 node = newrule(node,nrule);
+%                 out.Allnodes{changeind} = node;
+%                 out.Emptynodes = 0;
+%                 out = descendentdata(out,node.Id,X);
+%                 if out.Emptynodes == 0
+%                     notok = 0;
+%                 end
+%                 cntr = cntr + 1;
+%                 if cntr > maxiter
+%                     error('Change step could not find a satisfactory rule in 100 iterations')
+%                 end               
+%             end
+%             % Update log-likelihood on terminal nodes which need updating
+%             % Also update the Tree log-likelihood
+%             out.Lliketree = 0;
+%             [I,Ids] = termnodes(out);
+%             for ii=1:length(Ids)
+%                 if out.Allnodes{I(ii)}.Updatellike
+%                     out = llike(out,Ids(ii),y);
+%                 end
+%                 out.Lliketree = out.Lliketree + out.Allnodes{I(ii)}.Llike;
+%             end
         end
         
         % Swap
         function out = swap(obj,y,X)
-            % Find internal nodes whose parent is also an internal node;
+            % Find internal nodes whose parent is also a internal node;
             Ids = parentchildpairs(obj);
             if isempty(Ids)
                 error('Cannot perform swap step: No internal parent-child pairs.')
             end
-            Ids = randsample(Ids,length(Ids));
-            % Loop through until we find a swap without empty nodes.
+            % Randomize Ids
+            Ids = Ids(randsample(length(Ids),length(Ids)));
+            % Loop through until we find a swap without empty (or too small of) nodes.
             for ii = 1:length(Ids)
-                tmpout = obj;
-                % Randomly select one child
-                rind = Ids(ii);
-                nind = nodeind(obj,rind);
-                node = obj.Allnodes{nind};
+                out = obj;
+                % Randomly select one node
+                rID = Ids(ii);
+                nind = nodeind(out,rID);
+                node = out.Allnodes{nind};
+                % Child's rule
+                crule = node.Rule; % child rule
                 % Find the node's parent
-                nindParent = nodeind(obj,node.Parent);
-                nodeParent = obj.Allnodes{nindParent};
+                nindParent = nodeind(out,node.Parent);
+                nodeParent = out.Allnodes{nindParent};
                 % Parent Rule
                 prule = nodeParent.Rule;
-                % Is the node a left or right child?
-                LRind = ismember([nodeParent.Lchild,nodeParent.Rchild],rind);
-                indR = nodeind(obj,nodeParent.Rchild);
-                indL = nodeind(obj,nodeParent.Lchild);
-                if all(LRind == [1 0]) % Left Child
-                    lrule = node.Rule;
-                    %indR = nodeind(obj,nodeParent.Rchild);
-                    rrule = obj.Allnodes{indR}.Rule;
-                elseif all(LRind == [0 1]) % Right Child
-                    rrule = node.Rule;
-                    %indL = nodeind(obj,nodeParent.Lchild);
-                    lrule = obj.Allnodes{indL}.Rule;
-                end
-
-                % Are the two children rules equal?
-                eqrule = SplitRule.equalrule(lrule,rrule);
-                if eqrule
-                    % Switch Rules
-                    newprule = lrule;
-                    newLrule = prule;
-                    newRrule = prule;
-                else
+                % Do the parent and child have a rule on the same variable?
+                if prule{1} ~= crule{1} || ((prule{1} == crule{1}) &&  strcmp(out.Xclass(prule{1}),'cell'))% If no, Swap.
+                    % Check if both children have same split rule
+                    % Is the node a left or right child?
+                    LRind = ismember([nodeParent.Lchild,nodeParent.Rchild],rID);
+                    indR = nodeind(out,nodeParent.Rchild);
+                    indL = nodeind(out,nodeParent.Lchild);
                     if all(LRind == [1 0]) % Left Child
-                        newprule = lrule;
-                        newLrule = prule;
-                        newRrule = rrule;
+                        lrule = node.Rule;
+                        %indR = nodeind(obj,nodeParent.Rchild);
+                        rrule = obj.Allnodes{indR}.Rule;
+                        ind2 = indR;
                     elseif all(LRind == [0 1]) % Right Child
-                        newprule = rrule;
-                        newLrule = lrule;
-                        newRrule = prule;
+                        rrule = node.Rule;
+                        %indL = nodeind(obj,nodeParent.Lchild);
+                        lrule = obj.Allnodes{indL}.Rule;
+                        ind2 = indL;
                     end
-                end
-                tmpout.Allnodes{nindParent}.Rule = newprule;
-                tmpout.Allnodes{indL}.Rule = newLrule;
-                tmpout.Allnodes{indR}.Rule = newRrule;
 
-                % Update Descendent Data
-                tmpout.Emptynodes = 0;
-                tmpout = descendentdata(tmpout,nodeParent.Id,X);
-                if tmpout.Emptynodes == 0
-                    out = tmpout;
-                    % Update log-likelihood on terminal nodes which need updating
-                    % Also update Lliketree
-                    out.Lliketree = 0;
-                    [I,Ids] = termnodes(out);
-                    for jj=1:length(Ids)
-                        if out.Allnodes{I(jj)}.Updatellike
-                             out = llike(out,Ids(jj),y);
-                        end
-                        out.Lliketree = out.Lliketree + out.Allnodes{I(jj)}.Llike;
+                    % Are the two children rules equal?
+                    eqrule = 0;
+                    if lrule{1} == rrule{1}
+                        if isa(lrule{2},'cell')
+                            if isequal(sort(lrule{2}),sort(rrule{2}))
+                                eqrule = 1;
+                            end
+                        else % Numeric
+                            if lrule{2} == rrule{2}
+                                eqrule = 1;
+                            end
+                        end                            
                     end
+                    % If not equal rules, just swap one
+                    % Swap rules
+                    nodeParent.Rule = crule;
+                    node.Rule = prule;
+                    % Put rules in tree
+                    out.Allnodes{nind} = node;
+                    out.Allnodes{nindParent} = nodeParent;
+                    % change rule of other child if equal rules (CART)
+                    if eqrule
+                        node2 = out.Allnodes{ind2};
+                        % Update rule
+                        node2.Rule = prule;
+                        % Update tree
+                        out.Allnodes{ind2} = node2;
+                    end    
+                     % Update descendent data
+                    out = descendentdata(out,nodeParent.Id,X);
+                    if out.Smallnodes == 0 % we have enough data at each terminal node
+                        out = llike_termnodes(out,y);
+                        return;
+                    end 
+                else % Rotate if rule on same variable.
+                    % TODO: Add in the rotate steps. (most complex).
+                    % Is the node a left or right child?
+                    LRind = ismember([nodeParent.Lchild,nodeParent.Rchild],rID);
+                    indR = nodeind(out,nodeParent.Rchild);
+                    indL = nodeind(out,nodeParent.Lchild);
+                    if all(LRind == [1 0]) % Left Child
+                        %lrule = node.Rule;
+                        %indR = nodeind(obj,nodeParent.Rchild);
+                        %rrule = obj.Allnodes{indR}.Rule;
+                        LR = 'L';
+                    elseif all(LRind == [0 1]) % Right Child
+                        %rrule = node.Rule;
+                        %indL = nodeind(obj,nodeParent.Lchild);
+                        %lrule = obj.Allnodes{indL}.Rule;
+                        LR = 'R';
+                    end
+                    if strcmp(LR,'L') % Do a right rotation
+                        % Original parents/children
+                        pparent = nodeParent.Parent;
+                        crchild = node.Rchild;
+                        nind2 = nodeind(out,crchild);
+                        node2 = out.Allnodes{nind2};
+                        % Change parents and children
+                        nodeParent.Parent = node.Id; 
+                        nodeParent.Lchild = crchild;
+                        node.Parent = pparent;
+                        node.Rchild = nodeParent.Id;
+                        node2.Parent = nodeParent.Id;
+                    else % Do a left rotation
+                        pparent = nodeParent.Parent;
+                        clchild = node.Lchild;
+                        nind2 = nodeind(out,clchild);
+                        node2 = out.Allnodes{nind2};
+                        % Change parents and children
+                        nodeParent.Parent = node.Id;
+                        nodeParent.Rchild = clchild;
+                        node.Parent = pparent;
+                        node.Lchild = nodeParent.Id;
+                        node2.Parent = nodeParent.Id;
+                    end
+                    nodeParent.Depth = nodeParent.Depth + 1;
+                    node.Depth = node.Depth - 1;
+                    % Assign the Xind from parent to child
+                    node.Xind = nodeParent.Xind;
+                    
+
+                    % Put nodes back in tree
+                    out.Allnodes{nind} = node;
+                    out.Allnodes{nindParent} = nodeParent;
+                    out.Allnodes{nind2} = node2;
+                    % Update descendent data
+                    out = descendentdata(out,node.Id,X);
+                    % Update Depths
+                    out = depthupdate(out,node.Id);
                     return;
                 end
-            end
-            error('Swap step not possible.')
-            
+            end  
+            out = obj; % Return same tree
+            warning('Swap step not possible.')
         end
+        
+        % Update the depths of all nodes below node with Id
+        function out = depthupdate(obj,Id)
+            out = obj;
+            nind = nodeind(out,Id);
+            node = out.Allnodes{nind};
+            id_L = node.Lchild;
+            id_R = node.Rchild;
+            nindL = nodeind(out,id_L);
+            nindR = nodeind(out,id_R);
+            nodeL = out.Allnodes{nindL};
+            nodeR = out.Allnodes{nindR};
+            nodeL.Depth = node.Depth + 1;
+            nodeR.Depth = node.Depth + 1;
+            out.Allnodes{nindL} = nodeL;
+            out.Allnodes{nindR} = nodeR;
+            if ~isempty(nodeL.Rule)
+                out = depthupdate(out,id_L);
+            end
+            if ~isempty(nodeR.Rule)
+                out = depthupdate(out,id_R);
+            end
+        end
+            
+        
+        
+%         % Swap
+%         function out = swap(obj,y,X)
+%             % Find internal nodes whose parent is also an internal node;
+%             Ids = parentchildpairs(obj);
+%             if isempty(Ids)
+%                 error('Cannot perform swap step: No internal parent-child pairs.')
+%             end
+%             Ids = randsample(Ids,length(Ids));
+%             % Loop through until we find a swap without empty nodes.
+%             for ii = 1:length(Ids)
+%                 tmpout = obj;
+%                 % Randomly select one child
+%                 rind = Ids(ii);
+%                 nind = nodeind(obj,rind);
+%                 node = obj.Allnodes{nind};
+%                 % Find the node's parent
+%                 nindParent = nodeind(obj,node.Parent);
+%                 nodeParent = obj.Allnodes{nindParent};
+%                 % Parent Rule
+%                 prule = nodeParent.Rule;
+%                 % Is the node a left or right child?
+%                 LRind = ismember([nodeParent.Lchild,nodeParent.Rchild],rind);
+%                 indR = nodeind(obj,nodeParent.Rchild);
+%                 indL = nodeind(obj,nodeParent.Lchild);
+%                 if all(LRind == [1 0]) % Left Child
+%                     lrule = node.Rule;
+%                     %indR = nodeind(obj,nodeParent.Rchild);
+%                     rrule = obj.Allnodes{indR}.Rule;
+%                 elseif all(LRind == [0 1]) % Right Child
+%                     rrule = node.Rule;
+%                     %indL = nodeind(obj,nodeParent.Lchild);
+%                     lrule = obj.Allnodes{indL}.Rule;
+%                 end
+% 
+%                 % Are the two children rules equal?
+%                 eqrule = SplitRule.equalrule(lrule,rrule);
+%                 if eqrule
+%                     % Switch Rules
+%                     newprule = lrule;
+%                     newLrule = prule;
+%                     newRrule = prule;
+%                 else
+%                     if all(LRind == [1 0]) % Left Child
+%                         newprule = lrule;
+%                         newLrule = prule;
+%                         newRrule = rrule;
+%                     elseif all(LRind == [0 1]) % Right Child
+%                         newprule = rrule;
+%                         newLrule = lrule;
+%                         newRrule = prule;
+%                     end
+%                 end
+%                 tmpout.Allnodes{nindParent}.Rule = newprule;
+%                 tmpout.Allnodes{indL}.Rule = newLrule;
+%                 tmpout.Allnodes{indR}.Rule = newRrule;
+% 
+%                 % Update Descendent Data
+%                 tmpout.Smallnodes = 0;
+%                 tmpout = descendentdata(tmpout,nodeParent.Id,X);
+%                 if tmpout.Smallnodes == 0
+%                     out = tmpout;
+%                     % Update log-likelihood on terminal nodes which need updating
+%                     % Also update Lliketree
+%                     out.Lliketree = 0;
+%                     [I,Ids] = termnodes(out);
+%                     for jj=1:length(Ids)
+%                         if out.Allnodes{I(jj)}.Updatellike
+%                              out = llike(out,Ids(jj),y);
+%                         end
+%                         out.Lliketree = out.Lliketree + out.Allnodes{I(jj)}.Llike;
+%                     end
+%                     return;
+%                 end
+%             end
+%             error('Swap step not possible.')
+%             
+%         end
             
               
         % Find interior nodes (Ids) with a parent who is also an interior node;
@@ -427,7 +661,9 @@ classdef Tree
         end
         
         % Obtain the data for each of the children of a designated node
-        function [XindL,XindR,empty] = childrendata(obj,nodeid,X)
+        % ndata is a vector of length 2 giving the number of data points in
+        % the left and right child nodes, respectively.
+        function [XindL,XindR,ndata] = childrendata(obj,nodeid,X)
             nind = nodeind(obj,nodeid);
             node = obj.Allnodes{nind};
             therule = node.Rule; 
@@ -438,37 +674,41 @@ classdef Tree
                 %I = find(table2array(X(node.Xind,therule.Varcol)) <= therule.Varrule);
                 I = table2array(X(node.Xind,therule{1})) <= therule{2} ;
             elseif strcmp(obj.Xclass(therule{1}),'cell')
-                I = ismember(table2cell(X(node.Xind,therule{1})),therule{2});
+                I = ismember(table2cell(X(node.Xind,therule{1})),therule{2}{1});
             else
                 error('Unexpected variable class found.')
             end
             XindL = node.Xind(I);
             XindR = node.Xind(~I); 
+            ndata = [sum(I),sum(~I)];
             
-            % Check for empty children (children with no data)
-            emptyL = 0;
-            emptyR = 0;
-            if min(size(XindL)) == 0
-                emptyL = 1;
-                XindL = [];
-            end
-            if min(size(XindR)) == 0
-                emptyR = 1;
-                XindR = [];
-            end
-            empty = [emptyL,emptyR];               
+            % Check for children with data counts less than leafmin
+            
+%             
+%             % Check for empty children (children with no data)
+%             emptyL = 0;
+%             emptyR = 0;
+%             if min(size(XindL)) == 0
+%                 emptyL = 1;
+%                 XindL = [];
+%             end
+%             if min(size(XindR)) == 0
+%                 emptyR = 1;
+%                 XindR = [];
+%             end
+%             empty = [emptyL,emptyR];               
             
         end
         
-        % Update data of all descendents of a node (recursive function)
+        % Update data (Xind) of all descendents of a node (recursive function)
         function out = descendentdata(obj,nodeid,X)
             nind = nodeind(obj,nodeid);
             node2 = obj.Allnodes{nind};
             if ~isempty(node2.Lchild) && ~isempty(node2.Rchild)
-                [XindL,XindR,empty] = childrendata(obj,nodeid,X);           
+                [XindL,XindR,ndata] = childrendata(obj,nodeid,X);           
                 out = obj;
-                if any(empty)
-                    out.Emptynodes = 1;
+                if any(ndata < obj.Leafmin)
+                    out.Smallnodes = 1;
                 end
                 nindL = nodeind(out,node2.Lchild);
                 nindR = nodeind(out,node2.Rchild);
@@ -623,7 +863,8 @@ classdef Tree
                         if ii == 1
                             grp = node.Rule{2}{ii};
                         else
-                            grp = strcat(grp,' , ',node.Rule{2}{ii});
+                            %grp = strcat(grp,' , ',node.Rule{2}{ii});
+                            grp = [grp,', ',node.Rule{2}{ii}];
                         end
                     end
                     ruletext = strcat(colname,' \in \{',grp,'\}');
