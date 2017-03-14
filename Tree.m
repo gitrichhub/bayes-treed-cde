@@ -1,4 +1,5 @@
 classdef Tree
+    % TODO: remove parentchildagree functions...
     properties
         % X
         Allnodes % array of all Nodes
@@ -104,6 +105,7 @@ classdef Tree
             thenode = obj.Allnodes{nind};
             thenode = loglikefunc(thenode,obj,y);
             thenode.Updatellike = 0; 
+            %out.Allnodes{nind}
             out.Allnodes{nind} = thenode;
         end
         
@@ -165,18 +167,24 @@ classdef Tree
                     [XindL,XindR] = childrendata(out,birthID,X); % must use out since it has the new rule
                     % Add Nodes
                     newdepth = node.Depth + 1;
+                    if any(ismember(newids,out.NodeIds))
+                        error('New Ids are wrong.')
+                    end
                     childnode1 = Nodes(newids(1),birthID,[],[],[],XindL,newdepth);
                     childnode2 = Nodes(newids(2),birthID,[],[],[],XindR,newdepth);
+                    duplicateIDs(out);
                     out = addnode(out,childnode1,birthindex,'L',y);
                     out = addnode(out,childnode2,birthindex,'R',y);
+                    duplicateIDs(out);
                     % Update log-likelihood
                     nn = nnodes(out);
                     out.Lliketree = out.Lliketree - node.Llike + ...
                         out.Allnodes{nn-1}.Llike + out.Allnodes{nn}.Llike;
+                    parentchildagree(out);
                     return;
                 end
             end
-            error('Birth Step Not Possible')
+            warning('Birth Step Not Possible')
         end
         
         % Prune Function
@@ -192,7 +200,9 @@ classdef Tree
                     pind = I;
                 end
                 % Prune the node
-                out = delnode(obj,pind,y);              
+                out = delnode(obj,pind,y);     
+                parentchildagree(out);
+                duplicateIDs(out);
             else
                 error('Cannot prune a root node.')
             end
@@ -256,6 +266,8 @@ classdef Tree
                             %treestar = llike(treestar,nodestar.Rchild,y);
                             treestar = llike_termnodes(treestar,y);
                             out = treestar;
+                            parentchildagree(out);
+                            duplicateIDs(out);
                             return;
                         end % otherwise try again
                     end
@@ -331,6 +343,13 @@ classdef Tree
                 nodeParent = out.Allnodes{nindParent};
                 % Parent Rule
                 prule = nodeParent.Rule;
+                % Find grandparent
+                grandparent = 0;
+                if ~isempty(nodeParent.Parent)
+                    nindGrandparent = nodeind(out,nodeParent.Parent);
+                    nodeGrandparent = out.Allnodes{nindGrandparent};
+                    grandparent = 1;
+                end
                 % Do the parent and child have a rule on the same variable?
                 if prule{1} ~= crule{1} || ((prule{1} == crule{1}) &&  strcmp(out.Xclass(prule{1}),'cell'))% If no, Swap.
                     % Check if both children have same split rule
@@ -384,6 +403,8 @@ classdef Tree
                     out = descendentdata(out,nodeParent.Id,X);
                     if out.Smallnodes == 0 % we have enough data at each terminal node
                         out = llike_termnodes(out,y);
+                        parentchildagree(out);
+                        duplicateIDs(out);
                         return;
                     end 
                 else % Rotate if rule on same variable.
@@ -425,7 +446,18 @@ classdef Tree
                         nodeParent.Rchild = clchild;
                         node.Parent = pparent;
                         node.Lchild = nodeParent.Id;
-                        node2.Parent = nodeParent.Id;
+                        node2.Parent = nodeParent.Id;        
+                    end
+                    if grandparent
+                        if nodeGrandparent.Lchild == nodeParent.Id
+                            nodeGrandparent.Lchild = node.Id;
+                        elseif nodeGrandparent.Rchild == nodeParent.Id
+                            nodeGrandparent.Rchild = node.Id;
+                        else
+                            error('Logic is bad.')
+                        end
+                        % Put grandparent node back in tree
+                        out.Allnodes{nindGrandparent} = nodeGrandparent;
                     end
                     nodeParent.Depth = nodeParent.Depth + 1;
                     node.Depth = node.Depth - 1;
@@ -441,6 +473,8 @@ classdef Tree
                     out = descendentdata(out,node.Id,X);
                     % Update Depths
                     out = depthupdate(out,node.Id);
+                    parentchildagree(out);
+                    duplicateIDs(out);
                     return;
                 end
             end  
@@ -665,7 +699,7 @@ classdef Tree
             %end
             allIds = obj.NodeIds;
             alln = 0:(nn-1);
-            I = ~ismember(allIds,alln);
+            I = ~ismember(alln,allIds);
             out = alln(I);
             cntr = 0;
             while length(out) < 2
@@ -945,6 +979,34 @@ classdef Tree
                     ', Updatesplits=',num2str(node.Updatesplits),...
                     ', Terminalnode=',tnode]);
             end     
+        end
+        
+        function parentchildagree(obj)
+            for ii = 1:length(obj.Allnodes)
+                node = obj.Allnodes{ii};
+                if ~isempty(node.Lchild)
+                    nindL = nodeind(obj,node.Lchild);
+                    if obj.Allnodes{nindL}.Parent ~= node.Id
+                        etext = ['Node ',num2str(node.Id),...
+                            ' left child does not match.'];
+                        error(etext)
+                    end
+                end
+                if ~isempty(node.Rchild)
+                    nindR = nodeind(obj,node.Rchild);
+                    if obj.Allnodes{nindR}.Parent ~= node.Id
+                        etext = ['Node ',num2str(node.Id),...
+                            ' right child does not match.'];
+                        error(etext)
+                    end
+                end
+            end
+        end
+        
+        function duplicateIDs(obj)
+            if length(obj.Allnodes) ~= length(unique(obj.NodeIds))
+                error('Duplicate Ids encountered.')
+            end
         end
         
     end
