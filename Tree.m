@@ -826,13 +826,19 @@ classdef Tree
         end
         
         % Evaluate the prior on the tree (obj)
-        function lprior = prior_eval(obj)
+        %  Will also return the tree with updated split values
+        function [lprior,out] = prior_eval(obj,X)
+            out = obj;
             lprior = 0;
             for ii=1:length(obj.Allnodes)
                 % prior on depth
                 node = obj.Allnodes{ii};
                 d = node.Depth;
                 if ~isempty(node.Rule) % if not a terminal node
+                    if node.Updatesplits % update splits if needed
+                        node = getsplits(node,X,obj.Leafmin);
+                        out.Allnodes{ii} = node;
+                    end
                     lprior = lprior + log(obj.gamma) - obj.beta*log(1 + d) - ...
                         log(sum(node.nSplits));
                 else % if a terminal node
