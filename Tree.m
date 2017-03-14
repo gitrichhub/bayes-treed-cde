@@ -543,7 +543,13 @@ classdef Tree
         function Ids = parentchildpairs(obj)
             [~,Id] = termnodes(obj);
             nIds = obj.NodeIds;
-            nIds = nIds(nIds > 0); % Exclude the root node;
+            %nIds = nIds(nIds > 0); % Exclude the root node;
+            for ii=1:length(nIds)
+                if isempty(obj.Allnodes{ii}.Parent)
+                    rootid = obj.Allnodes{ii}.Id;
+                end
+            end
+            nIds = nIds(nIds ~= rootid);
             ind = ~ismember(nIds,Id); 
             Ids = nIds(ind);
             if min(size(Ids)) == 0
@@ -828,7 +834,8 @@ classdef Tree
             maxloc = 1 + width*(2*treedepth - 1);
             nind = nodeind(obj,nodename);
             node = obj.Allnodes{nind};
-            if nodename > 0
+            if ~isempty(node.Parent)
+            %if nodename > 0
                 if LR == 'L'
                     plusminus = -1;
                 elseif LR == 'R'
@@ -840,10 +847,7 @@ classdef Tree
                 %delta = width - 1/(2*treedepth);
                 %delta = (1 + width*(2*treedepth - 1) - (maxloc+1)/2)/treedepth;
                 xval = parentxloc + plusminus*delta;
-                plot([parentxloc, xval],[level,level-1],'b')
-                
-                
-                               
+                plot([parentxloc, xval],[level,level-1],'b')          
             else
                 % Get the xval to pass to children
                 %maxloc = 2*treedepth*width;     
@@ -853,7 +857,6 @@ classdef Tree
             
             % Plot the rule of the parent
             if ~isempty(node.Rule) % if parent node
-                
                 colnum = node.Rule{1};
                 colname = obj.Varnames(colnum);
                 if strcmp(obj.Xclass(node.Rule{1}),'double')
@@ -886,8 +889,13 @@ classdef Tree
                 error('Tree must be more than a root node.')
             else
                 nodegraph = zeros(1,nn);
-                for ii = 2:nn
-                   nodegraph(ii) = obj.Allnodes{ii}.Parent + 1;
+                for ii = 1:nn
+                    parent = obj.Allnodes{ii}.Parent;
+                    if ~isempty(parent)
+                        nodegraph(ii) = parent + 1;
+                    else
+                        rootnodename = obj.Allnodes{ii}.Id;
+                    end
                 end
                 %treeplot(nodegraph)
                 treedepth = max(nodegraph);
@@ -895,7 +903,7 @@ classdef Tree
                 %maxloc = 2*treedepth;
                 figure;
                 hold on;
-                treelines(obj,0,0,treedepth,'','')
+                treelines(obj,rootnodename,0,treedepth,'','')
                 hold off;
                 axis off;
             end
