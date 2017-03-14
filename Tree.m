@@ -200,6 +200,7 @@ classdef Tree
         
         % Change Function (Currently with CART implementation - draw from prior)
         function out = change(obj,y,X)
+            out0 = obj;
             % Find interior nodes
             [I,~] = interiornodes(obj);
             if isempty(I)
@@ -213,7 +214,15 @@ classdef Tree
             end
             for ii = 1:length(I); % For each interior node
                 changeind = changeind_rand(ii);
-                node = obj.Allnodes{changeind};
+                node = out0.Allnodes{changeind};
+                % Update splits if necessary
+                if node.Updatesplits == 1
+                    node = getsplits(node,X,obj.Leafmin);
+                end
+                % Store updated splitvals even if the change step does not
+                % happen 
+                out0.Allnodes{changeind} = node;
+               
                 % Choose a variable to split on
                 varind = find(node.nSplits > 0); % index on available variables
                 % Randomly order available variables
@@ -235,7 +244,7 @@ classdef Tree
                         end
                         % For each possible rule
                         nodestar = node;
-                        treestar = obj;
+                        treestar = out0;
                         nodestar.Rule = {vind,newrule};
                         treestar.Allnodes{changeind} = nodestar;
                         % Check to see if rule leaves a tree with enough 
@@ -252,6 +261,7 @@ classdef Tree
                     end
                 end
             end
+            error('No split value found. This should not happen since the original rule is valid.')
             
                 
             
@@ -784,8 +794,10 @@ classdef Tree
             % Determine if the data has changed and mark it.
             if length(node1.Xind) ~= length(Xind) % Different sizes
                 node1.Updatellike = 1;
+                node1.Updatesplits = 1;
             elseif ~all(sort(Xind) == sort(node1.Xind))
                 node1.Updatellike = 1;
+                node1.Updatesplits = 1;
             end
             
             node1.Xind = Xind;
@@ -924,6 +936,7 @@ classdef Tree
                 end
                 disp(['Id=',num2str(node.Id),', Updatellike=',...
                     num2str(node.Updatellike),...
+                    ', Updatesplits=',num2str(node.Updatesplits),...
                     ', Terminalnode=',tnode]);
             end     
         end
