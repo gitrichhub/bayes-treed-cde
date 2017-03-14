@@ -242,9 +242,10 @@ classdef Tree
                         %   observations at each terminal node.
                         treestar = descendentdata(treestar,nodestar.Id,X);
                         if treestar.Smallnodes == 0
-                            % Compute log-likelihood
-                            treestar = llike(treestar,nodestar.Lchild,y);
-                            treestar = llike(treestar,nodestar.Rchild,y);
+                            % Compute log-likelihood of terminal nodes;
+                            %treestar = llike(treestar,nodestar.Lchild,y);
+                            %treestar = llike(treestar,nodestar.Rchild,y);
+                            treestar = llike_termnodes(treestar,y);
                             out = treestar;
                             return;
                         end % otherwise try again
@@ -341,16 +342,18 @@ classdef Tree
 
                     % Are the two children rules equal?
                     eqrule = 0;
-                    if lrule{1} == rrule{1}
-                        if isa(lrule{2},'cell')
-                            if isequal(sort(lrule{2}),sort(rrule{2}))
-                                eqrule = 1;
-                            end
-                        else % Numeric
-                            if lrule{2} == rrule{2}
-                                eqrule = 1;
-                            end
-                        end                            
+                    if ~isempty(lrule) && ~isempty(rrule)
+                        if lrule{1} == rrule{1}
+                            if isa(lrule{2},'cell')
+                                if isequal(sort(lrule{2}),sort(rrule{2}))
+                                    eqrule = 1;
+                                end
+                            else % Numeric
+                                if lrule{2} == rrule{2}
+                                    eqrule = 1;
+                                end
+                            end                            
+                        end
                     end
                     % If not equal rules, just swap one
                     % Swap rules
@@ -586,7 +589,7 @@ classdef Tree
            out.Lliketree = out.Lliketree + out.Allnodes{nodeindex}.Llike;
         end
         
-        % Add node to tree
+        % Add node to tree, and calculate log-likelhood of node
         function out = addnode(obj,node,parentind,LR,y)
             nn = nnodes(obj);
             out = obj;
@@ -908,5 +911,22 @@ classdef Tree
                 axis off;
             end
         end
+        
+        % Troubleshooting functions
+        % Prind ID and ID status
+        function llikestatus(obj)
+            for ii = 1:length(obj.Allnodes)
+                node = obj.Allnodes{ii};
+                if isempty(node.Rule)
+                    tnode = 'yes';
+                else
+                    tnode = 'no';
+                end
+                disp(['Id=',num2str(node.Id),', Updatellike=',...
+                    num2str(node.Updatellike),...
+                    ', Terminalnode=',tnode]);
+            end     
+        end
+        
     end
 end
