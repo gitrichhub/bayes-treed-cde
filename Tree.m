@@ -133,6 +133,7 @@ classdef Tree
             % X: a matrix of the predictors
             
             out = obj;
+            birthindex = [];
             % Get Terminal Node indices and IDs
             [Ind,tnodeIDs] = termnodes(obj);
             % Randomly select a terminal node
@@ -177,9 +178,9 @@ classdef Tree
                     out = addnode(out,childnode2,birthindex,'R',y);
                     duplicateIDs(out);
                     % Update log-likelihood
-                    nn = nnodes(out);
+                    n = nnodes(out);
                     out.Lliketree = out.Lliketree - node.Llike + ...
-                        out.Allnodes{nn-1}.Llike + out.Allnodes{nn}.Llike;
+                        out.Allnodes{n-1}.Llike + out.Allnodes{n}.Llike;
                     parentchildagree(out);
                     return;
                 end
@@ -238,8 +239,10 @@ classdef Tree
                 % Randomly order available variables
                 if length(varind) > 1
                     varind_rand = randsample(varind,length(varind));
-                else
+                elseif length(varind) == 1
                     varind_rand = varind;
+                else
+                    error('No variables available (should not happen since original rule is valid)')
                 end
                 for jj = 1:length(varind_rand) % For each available variable
                     vind = varind_rand(jj);
@@ -321,14 +324,30 @@ classdef Tree
         end
         
         % Swap
-        function out = swap(obj,y,X)
-            % Find internal nodes whose parent is also a internal node;
-            Ids = parentchildpairs(obj);
-            if isempty(Ids)
-                error('Cannot perform swap step: No internal parent-child pairs.')
+        % If childID is specified, a swap is done with the childID and it's parent. 
+        function [out, swappossible] = swap(obj,y,X,childID)
+            if isempty(childID)
+                % Find internal nodes whose parent is also a internal node;
+                Ids = parentchildpairs(obj);
+                if isempty(Ids)
+                    error('Cannot perform swap step: No internal parent-child pairs.')
+                end
+                % Randomize Ids
+                Ids = Ids(randsample(length(Ids),length(Ids)));
+                swappossible = [];
+            else
+                if length(childID) > 1
+                    error('childID must be of length 1');
+                end
+                childIDind = nodeind(obj,childID);
+                tnode = obj.Allnodes{childIDind};
+                if isempty(tnode.Parent) || isempty(tnode.Rule)
+                    error('Child node must be an interior node with a parent');
+                end
+                Ids = childID;
+                swappossible = 0;
             end
-            % Randomize Ids
-            Ids = Ids(randsample(length(Ids),length(Ids)));
+            
             % Loop through until we find a swap without empty (or too small of) nodes.
             for ii = 1:length(Ids)
                 out = obj;
@@ -405,6 +424,7 @@ classdef Tree
                         out = llike_termnodes(out,y);
                         parentchildagree(out);
                         duplicateIDs(out);
+                        swappossible = 1;
                         return;
                     end 
                 else % Rotate if rule on same variable.
@@ -475,11 +495,12 @@ classdef Tree
                     out = depthupdate(out,node.Id);
                     parentchildagree(out);
                     duplicateIDs(out);
+                    swappossible = 1;
                     return;
                 end
             end  
             out = obj; % Return same tree
-            warning('Swap step not possible.')
+            % warning('Swap step not possible.')
         end
         
         % Update the depths of all nodes below node with Id
@@ -635,10 +656,10 @@ classdef Tree
         
         % Add node to tree, and calculate log-likelhood of node
         function out = addnode(obj,node,parentind,LR,y)
-            nn = nnodes(obj);
+            n = nnodes(obj);
             out = obj;
-            out.Allnodes{nn + 1} = node;
-            out.NodeIds(nn + 1) = node.Id;
+            out.Allnodes{n + 1} = node;
+            out.NodeIds(n + 1) = node.Id;
             if strcmp(LR,'L')
                 out.Allnodes{parentind}.Lchild = node.Id;
             elseif strcmp(LR,'R')
@@ -652,16 +673,16 @@ classdef Tree
         
         % Returns the index and Ids of the interior nodes
         function [I,Id] = interiornodes(obj)
-            nn = nnodes(obj);
-            if nn <= 1
+            n = nnodes(obj);
+            if n <= 1
                I = [];
                Id = [];
                return;
             end
-            Id = zeros(nn,1);
+            Id = zeros(n,1);
             I = Id;
             cntr = 1;
-            for ii=1:nn
+            for ii=1:n
                 if ~isempty(obj.Allnodes{ii}.Rule)
                     Id(cntr) = obj.NodeIds(ii);
                     I(cntr) = ii;
@@ -675,11 +696,11 @@ classdef Tree
         
         % Returns the index and Ids of the terminal nodes
         function [I,Id] = termnodes(obj)
-            nn = nnodes(obj);
-            Id = zeros(nn,1);
+            n = nnodes(obj);
+            Id = zeros(n,1);
             I = Id;
             cntr = 1;
-            for ii=1:nn
+            for ii=1:n
                 if isempty(obj.Allnodes{ii}.Rule)
                     Id(cntr) = obj.NodeIds(ii);
                     I(cntr) = ii;
@@ -692,18 +713,20 @@ classdef Tree
         
         % Gets new unique IDs for birth step
         function out = newIDs(obj)
-            nn = nnodes(obj);
-            %allIds = zeros(nn,1);
-            %for ii=1:nn
-            %    allIds(nn) = obj.Allnodes{ii}.Id;
+            %n = nnodes(obj);
+            %allIds = zeros(n,1);
+            %for ii=1:n
+            %    allIds(n) = obj.Allnodes{ii}.Id;
             %end
             allIds = obj.NodeIds;
-            alln = 0:(nn-1);
+            %alln = 0:(n-1);
+            alln = 0:max(allIds);
             I = ~ismember(alln,allIds);
             out = alln(I);
             cntr = 0;
+            n = max(allIds) + 1;
             while length(out) < 2
-                out = [out,nn + cntr];
+                out = [out,n + cntr];
                 cntr = cntr + 1;
             end
         end
@@ -779,12 +802,12 @@ classdef Tree
         
         % Get the index of a node with nodeid;
         function out = nodeind(obj,nodeid)
-            nn = length(nodeid);
-            if nn == 1
+            n = length(nodeid);
+            if n == 1
                 out = find(obj.NodeIds == nodeid);
-            elseif nn > 1
-                out = zeros(nn,1);
-                for ii=1:nn
+            elseif n > 1
+                out = zeros(n,1);
+                for ii=1:n
                     out(ii) = find(obj.NodeIds == nodeid(ii));
                 end
             else
@@ -931,7 +954,7 @@ classdef Tree
                 text(xval,level-1,ruletext,'HorizontalAlignment','right')
             end
             
-            %nn = length(obj.Allnodes);
+            %n = length(obj.Allnodes);
             if ~isempty(node.Lchild) && ~isempty(node.Rchild)
                 treelines(obj,node.Lchild,level-1,treedepth,xval,'L')
                 treelines(obj,node.Rchild,level-1,treedepth,xval,'R')
@@ -939,12 +962,12 @@ classdef Tree
         end
         
         function Treeplot(obj)
-            nn = length(obj.Allnodes);
-            if nn <= 1
+            n = length(obj.Allnodes);
+            if n <= 1
                 error('Tree must be more than a root node.')
             else
-                nodegraph = zeros(1,nn);
-                for ii = 1:nn
+                nodegraph = zeros(1,n);
+                for ii = 1:n
                     parent = obj.Allnodes{ii}.Parent;
                     if ~isempty(parent)
                         nodegraph(ii) = parent + 1;
@@ -1009,5 +1032,49 @@ classdef Tree
             end
         end
         
-    end
+        function [n,out] = nbirthnodes(obj,X)
+            out = obj;
+            n = 0;
+            for ii = 1:length(obj.Allnodes)
+                if isempty(obj.Allnodes{ii}.Rule) % terminal node
+                    node = obj.Allnodes{ii};
+                    if node.Updatesplits
+                        node = getsplits(node,X,obj.Leafmin);
+                        out.Allnodes{ii} = node;
+                    end
+                    if sum(node.nSplits) > 0
+                        n = n + 1;
+                    end
+                end
+            end
+        end
+        
+        function [nnodes,out] = nchangenodes(obj,X)
+            out = obj;
+            nnodes = 0; % Total number of change nodes
+            for ii = 1:length(obj.Allnodes) % For all nodes
+                if ~isempty(obj.Allnodes{ii}.Rule) % If not a terminal node
+                    node = obj.Allnodes{ii};
+                    if node.Updatesplits
+                        node = getsplits(node,X,obj.Leafmin);
+                        out.Allnodes{ii} = node;
+                    end
+                    if sum(node.nSplits) > 0
+                        nnodes = nnodes + 1;
+                    end
+                end
+            end         
+        end
+        % Count the number of nodes which can be swapped
+        function n = nswaps(obj,y,X)
+            n=0;
+            for ii = 1:length(obj.Allnodes)
+                node = obj.Allnodes{ii};
+                if ~isempty(node.Rule) && ~isempty(node.Parent) % swapable
+                    [~,sp] = swap(obj,y,X,node.Id);
+                    n = n + sp;
+                end
+            end
+        end
+    end             
 end

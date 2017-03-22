@@ -14,10 +14,18 @@ dat = table(x1,x2,x3,x4);
 
 rng(252)
 tic
-[TREES,perc_accept] = TreeMCMC(y,dat(:,1:2),100,100,25,.5,100);
+results = TreeMCMC(y,dat,100,100,25,.05,10);
 toc
 
-Treeplot(TREES{100})
+Treeplot(results.Trees{100})
+
+% Example with no relation to covariates
+rng(1362)
+y2 = normrnd(0,1,N,1);
+tic
+results = TreeMCMC(y2,dat,10,10,25,.05,10);
+toc
+
 
 
 
@@ -29,31 +37,21 @@ c = prune(b,y);
 d = change(b,y,dat);
 e = birth(b,y,dat);
 f = swap(e,y,dat);
-g = prune(f,y);
+g = swap(f,y,dat);
+h = prune(g,y);
 toc
 
-
-h = prune(g);
-
-j = prune(h);
-
-k = prune(j);
-
-l = prune(k);
-
-% Test change functions
-m = change(f,dat);
-n = change(m,dat);
-
-% Test Swap function
-o = swap(n,dat);
-p = swap(o,dat);
-swap(a,dat)
-swap(b,dat)
-swap(c,dat)
+rng(25)
+a = Tree(y,dat,[],.5,1);
+b = birth(a,y,dat);
+c = birth(b,y,dat);
+d = birth(c,y,dat);
+e = birth(d,y,dat);
+f = change(e,y,dat);
+g = prune(f,y);
+h = swap(g,y,dat);
 
 
-% A mix of things
 
 
 
