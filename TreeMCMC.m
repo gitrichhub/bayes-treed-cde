@@ -188,10 +188,6 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             n_c_total = n_c_total + 1;
         elseif r == 4; % swap
             Tstar = swap(T,y,X,[]);
-            % TODO: remove following if statement.
-            if Tstar.Lliketree ~= T.Lliketree
-                error('Likelihoods should match')
-            end
             [Tstarprior,Tstar] = prior_eval(Tstar,X);
             nT = nswaps(T,y,X);
             nTstar = nswaps(Tstar,y,X);

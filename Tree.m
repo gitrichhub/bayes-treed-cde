@@ -645,13 +645,15 @@ classdef Tree
            node.Lchild = [];
            node.Rchild = [];
            node.Rule = [];
-           out.Allnodes{nodeindex} = node; % update node
+           
+           newind = nodeind(out,node.Id);
+           out.Allnodes{newind} = node; % update node
            % Update likelihood if necessary
            if node.Updatellike
-               out = llike(out,out.Allnodes{nodeindex}.Id,y);
+               out = llike(out,out.Allnodes{newind}.Id,y);
            end
            % Add in Log-likelihood of the parent node
-           out.Lliketree = out.Lliketree + out.Allnodes{nodeindex}.Llike;
+           out.Lliketree = out.Lliketree + out.Allnodes{newind}.Llike;
         end
         
         % Add node to tree, and calculate log-likelhood of node
