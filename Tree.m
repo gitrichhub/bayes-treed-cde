@@ -325,7 +325,7 @@ classdef Tree
         
         % Swap
         % If childID is specified, a swap is done with the childID and it's parent. 
-        function [out, swappossible] = swap(obj,y,X,childID)
+        function [out, swappossible] = swap(obj,y,X,childID,llikecalc)
             if isempty(childID)
                 % Find internal nodes whose parent is also a internal node;
                 Ids = parentchildpairs(obj);
@@ -421,7 +421,9 @@ classdef Tree
                      % Update descendent data
                     out = descendentdata(out,nodeParent.Id,X);
                     if out.Smallnodes == 0 % we have enough data at each terminal node
-                        out = llike_termnodes(out,y);
+                        if llikecalc
+                            out = llike_termnodes(out,y);
+                        end
                         parentchildagree(out);
                         duplicateIDs(out);
                         swappossible = 1;
@@ -1073,7 +1075,7 @@ classdef Tree
             for ii = 1:length(obj.Allnodes)
                 node = obj.Allnodes{ii};
                 if ~isempty(node.Rule) && ~isempty(node.Parent) % swapable
-                    [~,sp] = swap(obj,y,X,node.Id);
+                    [~,sp] = swap(obj,y,X,node.Id,0);
                     n = n + sp;
                 end
             end

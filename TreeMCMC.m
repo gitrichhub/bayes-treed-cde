@@ -19,10 +19,10 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
     T = Tree(y,X,leafmin,gamma,beta);
     
     % Probability of proposing steps
-    p_g_orig = .25; % grow
-    p_p_orig = .25; % prune
-    p_c_orig = .25; % change
-    p_s_orig = .25; % swap
+    p_g_orig = .3; % grow
+    p_p_orig = .3; % prune
+    p_c_orig = .2; % change
+    p_s_orig = .2; % swap
     allprobs = [p_g_orig,p_p_orig,p_c_orig,p_s_orig];
 %     cum_prob = cumsum([p_g_orig,p_p_orig,p_c_orig,p_s_orig]);
 %     cum_prob2 = cumsum([p_g_orig,p_p_orig,p_c_orig])./ ...
@@ -48,7 +48,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
     for ii=1:(burn + nmcmc)
         % See what moves are possible
         if length(T.Allnodes) >= 5
-            [~,swappossible] = swap(T,y,X,[]);
+            [~,swappossible] = swap(T,y,X,[],0);
         else
             swappossible = [];
         end
@@ -136,7 +136,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             
             % Reversibility
             if length(Tstar.Allnodes) >= 5
-                [~,swappossible] = swap(Tstar,y,X,[]);
+                [~,swappossible] = swap(Tstar,y,X,[],0);
             else
                 swappossible = [];
             end
@@ -158,7 +158,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             N_v = sum(T.Allnodes{pind}.nSplits > 0);
             % Reversibility
             if length(Tstar.Allnodes) >= 5
-                [~,swappossible] = swap(Tstar,y,X,[]);
+                [~,swappossible] = swap(Tstar,y,X,[],0);
             else
                 swappossible = [];
             end
@@ -189,7 +189,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
                 prop_ratio;
             n_c_total = n_c_total + 1;
         elseif r == 4; % swap
-            Tstar = swap(T,y,X,[]);
+            Tstar = swap(T,y,X,[],1);
             [Tstarprior,Tstar] = prior_eval(Tstar,X);
             nT = nswaps(T,y,X);
             nTstar = nswaps(Tstar,y,X);
