@@ -129,6 +129,8 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             kstar = nbirthnodes(T,X); % Number of nodes that can grow
             k_d = length(terminalparents(Tstar)); % number of possible deaths in proposed model
             birthvarind = Tstar.Allnodes{birthindex}.Rule{1};
+            % Number of possible variables to split on
+            N_v = sum(Tstar.Allnodes{birthindex}.nSplits > 0);
             % Number of possible splits for this variable
             N_b = Tstar.Allnodes{birthindex}.nSplits(birthvarind);
             
@@ -141,7 +143,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             [nbirths,Tstar] = nbirthnodes(Tstar,X);
             [~,p_p_star,~,~] = propprobs(Tstar,allprobs,nbirths,swappossible);
             
-            prop_ratio = log(p_p_star/k_d) - log(p_g/(kstar*N_b));
+            prop_ratio = log(p_p_star/k_d) - log(p_g/(kstar*N_v*N_b));
             [Tstarprior,Tstar] = prior_eval(Tstar,X);
             lr = (Tstar.Lliketree - T.Lliketree) + ...
                 (Tstarprior - prior_eval(T,X)) + ...
@@ -153,7 +155,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             k_d = length(terminalparents(T));
             prunevarind = T.Allnodes{pind}.Rule{1};
             N_b = T.Allnodes{pind}.nSplits(prunevarind);
-            
+            N_v = sum(T.Allnodes{pind}.nSplits > 0);
             % Reversibility
             if length(Tstar.Allnodes) >= 5
                 [~,swappossible] = swap(Tstar,y,X,[]);
@@ -164,7 +166,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             kstar = nbirths;
             [p_g_star,~,~,~] = propprobs(Tstar,allprobs,nbirths,swappossible);
             
-            prop_ratio = log(p_g_star/(kstar*N_b)) - log(p_p/k_d);
+            prop_ratio = log(p_g_star/(kstar*N_v*N_b)) - log(p_p/k_d);
             [Tstarprior,Tstar] = prior_eval(Tstar,X);
             lr = (Tstar.Lliketree - T.Lliketree) + ...
                 (Tstarprior - prior_eval(T,X)) + ...
