@@ -210,7 +210,12 @@ classdef Tree
         end
         
         % Change Function (Currently with CART implementation - draw from prior)
-        function out = change(obj,y,X)
+        % p is the probabiliy of only changing the rule of a continuous
+        % variable
+        function [out,priordraw,startcont,endcont,nchange,nchange2] = change(obj,y,X,p)
+            %cont = 0; % 1 if a continuous variable was changed
+            nchange = []; % number of possible changes (up to 2) for continuous variables
+            nchange2 = [];
             out0 = obj;
             % Find interior nodes
             [I,~] = interiornodes(obj);
@@ -226,102 +231,153 @@ classdef Tree
             for ii = 1:length(I); % For each interior node
                 changeind = changeind_rand(ii);
                 node = out0.Allnodes{changeind};
-                % Update splits if necessary
-                if node.Updatesplits == 1
-                    node = getsplits(node,X,obj.Leafmin);
-                end
-                % Store updated splitvals even if the change step does not
-                % happen 
-                out0.Allnodes{changeind} = node;
-               
-                % Choose a variable to split on
-                varind = find(node.nSplits > 0); % index on available variables
-                % Randomly order available variables
-                if length(varind) > 1
-                    varind_rand = randsample(varind,length(varind));
-                elseif length(varind) == 1
-                    varind_rand = varind;
+                priordraw = 0;
+                startcont = 0;
+                endcont = 0;
+                % Determine variable type of rule
+                if strcmp(obj.Xclass{node.Rule{1}},'cell') % draw a rule from prior
+                    priordraw = 1;
                 else
-                    error('No variables available (should not happen since original rule is valid)')
-                end
-                for jj = 1:length(varind_rand) % For each available variable
-                    vind = varind_rand(jj);
-                    rules = node.Splitvals{vind};
-                    % Rearrange rules
-                    rules_rand = rules(randsample(length(rules),length(rules)));
-                    for kk = 1:length(rules_rand)
-                        if isa(rules_rand,'cell')
-                            newrule = rules_rand{kk};
-                        else
-                            newrule = rules_rand(kk);
-                        end
-                        % For each possible rule
-                        nodestar = node;
-                        treestar = out0;
-                        nodestar.Rule = {vind,newrule};
-                        treestar.Allnodes{changeind} = nodestar;
-                        % Check to see if rule leaves a tree with enough 
-                        %   observations at each terminal node.
-                        treestar = descendentdata(treestar,nodestar.Id,X);
-                        if treestar.Smallnodes == 0
-                            % Compute log-likelihood of terminal nodes;
-                            %treestar = llike(treestar,nodestar.Lchild,y);
-                            %treestar = llike(treestar,nodestar.Rchild,y);
-                            treestar = llike_termnodes(treestar,y);
-                            out = treestar;
-                            parentchildagree(out);
-                            duplicateIDs(out);
-                            return;
-                        end % otherwise try again
+                    startcont = 1;
+                    if rand >= p
+                        priordraw = 1; 
+                    else
+                        endcont = 1;
                     end
                 end
+                
+                if priordraw % Draw from the prior
+                    % Update splits if necessary
+                    if node.Updatesplits == 1
+                        node = getsplits(node,X,obj.Leafmin);
+                    end
+                    % Store updated splitvals even if the change step does not
+                    % happen 
+                    out0.Allnodes{changeind} = node;
+                    % Choose a variable to split on
+                    varind = find(node.nSplits > 0); % index on available variables
+                    % Randomly order available variables
+                    if length(varind) > 1
+                        varind_rand = randsample(varind,length(varind));
+                    elseif length(varind) == 1
+                        varind_rand = varind;
+                    else
+                        error('No variables available (should not happen since original rule is valid)')
+                    end
+                    for jj = 1:length(varind_rand) % For each available variable
+                        endcont = 0;
+                        vind = varind_rand(jj);
+                        rules = node.Splitvals{vind};
+                        % Rearrange rules in random order
+                        rules_rand = rules(randsample(length(rules),length(rules)));                            
+                        for kk = 1:length(rules) % For each rule on this variable
+                            if isa(rules_rand,'cell')
+                                newrule = rules_rand{kk};
+                            else
+                                newrule = rules_rand(kk);
+                                endcont = 1;
+                            end
+                            % For each possible rule
+                            nodestar = node;
+                            treestar = out0;
+                            nodestar.Rule = {vind,newrule};
+                            treestar.Allnodes{changeind} = nodestar;
+                            % Check to see if rule leaves a tree with enough 
+                            %   observations at each terminal node.
+                            treestar = descendentdata(treestar,nodestar.Id,X);
+                            if treestar.Smallnodes == 0
+                                % Compute log-likelihood of terminal nodes;
+                                %treestar = llike(treestar,nodestar.Lchild,y);
+                                %treestar = llike(treestar,nodestar.Rchild,y);
+                                treestar = llike_termnodes(treestar,y);
+                                out = treestar;
+                                parentchildagree(out);
+                                duplicateIDs(out);
+                                return;
+                            end % otherwise try again
+                        end
+                    end
+                else % Sequentially move rule one value to left or right
+                    % Find the index of the rule in Splitvals
+                    % CAlcualte log-likelihood of chosen rule...
+                    %cont = 1;
+                    endcont = 1;
+                    [n,trees] = getchangerules(out0,changeind,X);
+                    nchange = sum(n);
+                    if nchange == 2
+                        if rand < .5
+                            out = trees{1};
+                        else
+                            out = trees{2};
+                        end
+                    elseif nchange == 1
+                        out = trees{n > 0};
+                    else % Keep the same tree/rule;
+                        out = out0;
+                    end
+                    out = llike_termnodes(out,y);
+                    n2 = getchangerules(out,changeind,X);
+                    nchange2 = sum(n2);
+                    return; % Never need to go through the loop
+                end
+                error('should never get here...');
             end
             error('No split value found. This should not happen since the original rule is valid.')
-            
-                
-            
-            
-            
-            
-            
-            
-%             % Generate a new split rule from the prior (CART)
-%             notok = 1;
-%             cntr = 0;
-%             maxiter = 100;
-%             colind = 0; % Choose a random column in drawrule function for first time;
-%             out = obj;
-%             while notok
-%                 % Randomly select an interior node to change the rule
-%                 changeind = randsample(I,1);
-%                 
-%                 % Reset on each iteration...
-%                 node = obj.Allnodes{changeind};
-%                 out = obj;
-%                 [nrule, colind] = drawrule(node,obj,X,colind);
-%                 node = newrule(node,nrule);
-%                 out.Allnodes{changeind} = node;
-%                 out.Emptynodes = 0;
-%                 out = descendentdata(out,node.Id,X);
-%                 if out.Emptynodes == 0
-%                     notok = 0;
-%                 end
-%                 cntr = cntr + 1;
-%                 if cntr > maxiter
-%                     error('Change step could not find a satisfactory rule in 100 iterations')
-%                 end               
-%             end
-%             % Update log-likelihood on terminal nodes which need updating
-%             % Also update the Tree log-likelihood
-%             out.Lliketree = 0;
-%             [I,Ids] = termnodes(out);
-%             for ii=1:length(Ids)
-%                 if out.Allnodes{I(ii)}.Updatellike
-%                     out = llike(out,Ids(ii),y);
-%                 end
-%                 out.Lliketree = out.Lliketree + out.Allnodes{I(ii)}.Llike;
-%             end
         end
+        
+        
+        function [n,trees] = getchangerules(obj,nodeind,X)
+            trees = cell(2,1);
+            n = [0,0];
+            node = obj.Allnodes{nodeind};
+            vind = node.Rule{1};
+            rules = node.Splitvals{vind};
+            nrules = length(rules);
+            oldrule = node.Rule{2};
+            rind = find(oldrule == rules);
+            if isempty(rind) % possibly rules have changed above it...
+                % This does not change the leaf nodes below...
+                rind = find(oldrule >= rules,1,'last');
+            end
+            Ltreecalc = 0;
+            Rtreecalc = 0;
+            if rind > 1 && rind < nrules; % If rule isn't on boundary
+                Ltreecalc = 1;
+                Rtreecalc = 2;
+            elseif rind == 1 && nrules > 1
+                Rtreecalc = 1;
+            elseif rind == nrules && nrules > 1
+                Ltreecalc = 1;
+            else
+                error('Logic is bad.');
+            end
+            if Ltreecalc
+                newruleL = {vind,rules(rind - 1)};
+                treeL = obj;
+                nodeL = node;
+                nodeL.Rule = newruleL;
+                treeL.Allnodes{nodeind} = nodeL;
+                treeL = descendentdata(treeL,nodeL.Id,X);
+                if treeL.Smallnodes == 0
+                    n(1) =  1;
+                    trees{1} = treeL;
+                end 
+            end
+            if Rtreecalc
+                newruleR = {vind,rules(rind + 1)};
+                treeR = obj;
+                nodeR = node;
+                nodeR.Rule = newruleR;
+                treeR.Allnodes{nodeind} = nodeR;
+                treeR = descendentdata(treeR,nodeR.Id,X);
+                if treeR.Smallnodes == 0
+                    n(2) = 1;
+                    trees{2} = treeR;
+                end 
+            end
+        end
+                        
+        
         
         % Swap
         % If childID is specified, a swap is done with the childID and it's parent. 

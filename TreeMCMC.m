@@ -1,4 +1,4 @@
-function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
+function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta,p)
     % TODO: 
     % Check for format of input variables
     if ~isnumeric(y)
@@ -14,15 +14,29 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
         error('input arg "burn" must be a scalar integer.')
     end
     
+    if isempty(p)
+        p = .75;
+    end
     
+    
+%     for ii = 1:size(X,2)
+%         if isa(X{:,ii},'cell')
+%             break
+%         end
+%         if ii == size(X,2) % if all X's are continuous
+%             p = 1;
+%             disp('NOTE: p changed to 1 since all Xs are continuous');
+%         end
+%     end
+            
     % Initialize root tree
     T = Tree(y,X,leafmin,gamma,beta);
     
     % Probability of proposing steps
-    p_g_orig = .3; % grow
-    p_p_orig = .3; % prune
-    p_c_orig = .2; % change
-    p_s_orig = .2; % swap
+    p_g_orig = .25; % grow
+    p_p_orig = .25; % prune
+    p_c_orig = .25; % change
+    p_s_orig = .25; % swap
     allprobs = [p_g_orig,p_p_orig,p_c_orig,p_s_orig];
 %     cum_prob = cumsum([p_g_orig,p_p_orig,p_c_orig,p_s_orig]);
 %     cum_prob2 = cumsum([p_g_orig,p_p_orig,p_c_orig])./ ...
@@ -45,6 +59,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
     treesize = zeros(nmcmc,1);
     LLIKE = zeros(nmcmc,1);
     tsize = 1;
+    Tprior = prior_eval(T,X);
     for ii=1:(burn + nmcmc)
         % See what moves are possible
         if length(T.Allnodes) >= 5
@@ -146,7 +161,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             prop_ratio = log(p_p_star/k_d) - log(p_g/(kstar*N_v*N_b));
             [Tstarprior,Tstar] = prior_eval(Tstar,X);
             lr = (Tstar.Lliketree - T.Lliketree) + ...
-                (Tstarprior - prior_eval(T,X)) + ...
+                (Tstarprior - Tprior) + ...
                 prop_ratio;
             n_g_total = n_g_total + 1;
         elseif r == 2 % prune
@@ -169,23 +184,46 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             prop_ratio = log(p_g_star/(kstar*N_v*N_b)) - log(p_p/k_d);
             [Tstarprior,Tstar] = prior_eval(Tstar,X);
             lr = (Tstar.Lliketree - T.Lliketree) + ...
-                (Tstarprior - prior_eval(T,X)) + ...
+                (Tstarprior - Tprior) + ...
                 prop_ratio;
             n_p_total = n_p_total + 1;
         elseif r == 3; % change
-            Tstar = change(T,y,X);
-            % Assuming the number of possible changes are the same for reversibility
-            %   this is not necessarily true, but is difficult to compute.
-            %   Perhaps will add this in future version
+            [Tstar,priordraw,startcont,endcont,nchange,nchange2] = change(T,y,X,p);
+            % Tstar = change(T,y,X);
             [Tstarprior,Tstar] = prior_eval(Tstar,X);
-            [nT,T] = nchangenodes(T,X);
-            [nTstar,Tstar] = nchangenodes(Tstar,X);
+            %[nT,T] = nchangenodes(T,X);
+            %[nTstar,Tstar] = nchangenodes(Tstar,X);
             
-             % Reversibility (nothing needed for change step)           
+            % Reversibility
+            if priordraw
+                if startcont
+                    if endcont            
+                        prop_ratio = 0;
+                    else
+                        prop_ratio = log(1/(1-p));
+                    end
+                else % start with categorical variable
+                    if endcont
+                        prop_ratio = log(1-p);
+                    else
+                        prop_ratio = 0;
+                    end
+                end
+            else % not a prior draw
+                if startcont
+                    if endcont
+                        prop_ratio = log(nchange/nchange2);
+                    else
+                        error('This should not happen.')
+                    end
+                else
+                    error('This should never happen.')
+                end
+            end
             
-            prop_ratio = log(nT/nTstar);
+            % prop_ratio = log(nT/nTstar);
             lr = (Tstar.Lliketree - T.Lliketree) + ...
-                (Tstarprior - prior_eval(T,X)) + ...
+                (Tstarprior - Tprior) + ...
                 prop_ratio;
             n_c_total = n_c_total + 1;
         elseif r == 4; % swap
@@ -194,12 +232,13 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta)
             nT = nswaps(T,y,X);
             nTstar = nswaps(Tstar,y,X);
             prop_ratio = log(nT/nTstar);
-            lr = Tstarprior - prior_eval(T,X) + prop_ratio;
+            lr = Tstarprior - Tprior + prop_ratio;
             n_s_total = n_s_total + 1;
         end
 
         if lr > log(rand)
             T = Tstar;
+            Tprior = Tstarprior;
             naccept = naccept + 1;
             if r == 1
                 n_g_accept = n_g_accept + 1;
