@@ -1,11 +1,11 @@
-function [Tstar,Tstarprior,n_totals,prop_ratio,tsize,r,lr] = proposeTree(T,Tprior,y,X,allprobs,ntotals,p,temp,mset)
+function [Tstar,Tstarprior,prop_ratio,r,lr] = proposeTree(T,Tprior,y,X,allprobs,p,temp,mset)
     % T: current tre
     % y: dependent variable
     % X: Data
     
     % Initial values
     lr = [];
-    n_totals = ntotals;
+    %n_totals = ntotals;
 
     % See what moves are possible
     if length(T.Allnodes) >= 5
@@ -46,7 +46,7 @@ function [Tstar,Tstarprior,n_totals,prop_ratio,tsize,r,lr] = proposeTree(T,Tprio
                 prop_ratio;
         end
         %n_g_total = n_g_total + 1;
-        n_totals(1) = ntotals(1) + 1;
+        % n_totals(1) = ntotals(1) + 1;
     elseif r == 2 % prune
         [Tstar,pind] = prune(T,y,X);
         %kstar = length(termnodes(Tstar));
@@ -72,7 +72,7 @@ function [Tstar,Tstarprior,n_totals,prop_ratio,tsize,r,lr] = proposeTree(T,Tprio
                 prop_ratio;
         end
         %n_p_total = n_p_total + 1;
-        n_totals(2) = ntotals(2) + 1;
+        % n_totals(2) = ntotals(2) + 1;
     elseif r == 3; % change
         [Tstar,priordraw,startcont,endcont,nchange,nchange2] = change(T,y,X,p);
         % Tstar = change(T,y,X);
@@ -114,7 +114,7 @@ function [Tstar,Tstarprior,n_totals,prop_ratio,tsize,r,lr] = proposeTree(T,Tprio
                 prop_ratio;
         end
         %n_c_total = n_c_total + 1;
-        n_totals(3) = ntotals(3) + 1;
+        %n_totals(3) = ntotals(3) + 1;
     elseif r == 4; % swap
         Tstar = swap(T,y,X,[],1);
         [Tstarprior,Tstar] = prior_eval(Tstar,X);
@@ -125,10 +125,10 @@ function [Tstar,Tstarprior,n_totals,prop_ratio,tsize,r,lr] = proposeTree(T,Tprio
             lr = Tstarprior - Tprior + prop_ratio;
         end
         %n_s_total = n_s_total + 1;
-        n_totals(4) = ntotals(4) + 1;
+        %n_totals(4) = ntotals(4) + 1;
     end
     
-    tsize = ceil(length(Tstar.Allnodes)/2);
+    %tsize = ceil(length(Tstar.Allnodes)/2);
 end
     
     

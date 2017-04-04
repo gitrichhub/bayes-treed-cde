@@ -47,9 +47,17 @@ y = y + normrnd(0,1,N,1);
 y3 = y;
 dat3 = dat;
 
+rng(3399)
+% Temp of 0, should prefer smaller trees (tre of size 0 tecnically) because of prior...
+results30 = TreeMCMCtemp(y3,dat3,50,50,25,.05,10,.75,0);
+
+rng(283912)
+% Temp of 1, should match results 3 below;
+results31 = TreeMCMCtemp(y3,dat3,10,10,25,.05,10,.75,1);
+
 rng(283912)
 tic
-results3 = TreeMCMC(y3,dat3,10000,10000,25,.05,10,.75);
+results3 = TreeMCMC(y3,dat3,10,10,25,.05,10,.75);
 toc
 Treeplot(results3.Trees{10000})
 

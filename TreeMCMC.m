@@ -165,7 +165,7 @@ function [output] = TreeMCMC(y,X,nmcmc,burn,leafmin,gamma,beta,p)
                 prop_ratio;
             n_g_total = n_g_total + 1;
         elseif r == 2 % prune
-            [Tstar,pind] = prune(T,y);
+            [Tstar,pind] = prune(T,y,X);
             %kstar = length(termnodes(Tstar));
             k_d = length(terminalparents(T));
             prunevarind = T.Allnodes{pind}.Rule{1};

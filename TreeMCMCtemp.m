@@ -45,8 +45,7 @@ function [output] = TreeMCMCtemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,temp)
     tsize = 1;
     Tprior = prior_eval(T,X);
     for ii=1:(burn + nmcmc)
-        
-        [Tstar,Tstarprior,~,~,tsize,r,lr] = proposeTree(T,Tprior,y,X,allprobs,ntotals,p,temp,mset);
+        [Tstar,Tstarprior,~,r,lr] = proposeTree(T,Tprior,y,X,allprobs,p,temp,0);
         if lr > log(rand)
             T = Tstar;
             Tprior = Tstarprior;
@@ -62,6 +61,16 @@ function [output] = TreeMCMCtemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,temp)
             else
                 n_s_accept = n_s_accept + 1;
             end
+        else
+            if r == 1
+                n_g_total = n_g_total + 1;
+            elseif r == 2
+                n_p_total = n_p_total + 1;
+            elseif r == 3
+                n_c_total = n_c_total + 1;
+            else
+                n_s_total = n_s_total + 1;
+            end
         end
         
         if mod(ii,10) == 0
@@ -74,7 +83,6 @@ function [output] = TreeMCMCtemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,temp)
             TREES{ii - burn} = T;
             treesize(ii - burn) = tsize;
             LLIKE(ii - burn) = T.Lliketree;
-            
         end
     end
     perc_accept = naccept/(nmcmc + burn);
