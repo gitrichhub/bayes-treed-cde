@@ -14,7 +14,7 @@ dat = table(x1,x2,x3,x4);
 
 rng(252)
 tic
-results = TreeMCMC(y,dat,100,100,25,.05,10);
+results = TreeMCMC(y,dat,10,10,25,.05,10,.75);
 toc
 
 Treeplot(results.Trees{100})
@@ -28,6 +28,7 @@ toc
 
 
 % Three covariates (Yabo's example)
+rng(23432)
 N = 1200;
 x1 = unifrnd(0,2,N,1);
 x2 = unifrnd(0,2,N,1);
@@ -46,11 +47,17 @@ y = y + normrnd(0,1,N,1);
 y3 = y;
 dat3 = dat;
 
-rng(28392)
+rng(283912)
 tic
-results3 = TreeMCMC(y3,dat3,1000,1000,25,.05,10);
+results3 = TreeMCMC(y3,dat3,10000,10000,25,.05,10,.75);
 toc
-Treeplot(results3.Trees{1000})
+Treeplot(results3.Trees{10000})
+
+% Multiset
+rng(1038)
+tic
+result3multi = TreeMCMC_Multiset(y3,dat3,10,10,2,25,.05,10,.75);
+toc
 
 a = Tree(y3,dat3,[],.05,10);
 node0 = Nodes(0,[],1,2,{2,1},1:N,0);
@@ -67,19 +74,24 @@ a = llike_termnodes(a,y3);
 a.Lliketree % likelihood of true tree structure.
 
 
+% Simulate a mixture of trees...
 
 
 rng(13)
 tic
 a = Tree(y,dat,[],.5,1);
 b = birth(a,y,dat);
-c = prune(b,y);
-d = change(b,y,dat);
+c = prune(b,y,.75);
+[d,priordraw,startcont,endcont,nchange,nchange2] = change(b,y,dat,.75)
 e = birth(b,y,dat);
 f = swap(e,y,dat);
 g = swap(f,y,dat);
 h = prune(g,y);
 toc
+
+b2 = b;
+b2.Allnodes{1}.Rule{2} = b.Allnodes{1}.Splitvals{1}(end-1);
+[d2,priordraw,startcont,endcont,nchange,nchange2] = change(b2,y,dat,.75)
 
 rng(25)
 a = Tree(y,dat,[],.5,1);

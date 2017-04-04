@@ -1,5 +1,6 @@
 classdef Tree
     % TODO: remove parentchildagree functions...
+    % TODO: Store tree prior as a class property.
     properties
         % X
         Allnodes % array of all Nodes
@@ -16,6 +17,8 @@ classdef Tree
         Leafmin % minimum number of values at a leaf
         gamma
         beta
+        Prior
+        %Updateprior        
     end
     methods
         % Constructor
@@ -95,6 +98,9 @@ classdef Tree
             out = llike(out,0,y);
             % Set tree log-likelihood to that of the root node;
             out.Lliketree = out.Allnodes{1}.Llike;
+            
+            [~,out] = prior_eval(out,X);
+            %out.Updateprior = 0;
         end
         
         % Calculate log-likelihood of a node and updates the node
@@ -182,6 +188,7 @@ classdef Tree
                     out.Lliketree = out.Lliketree - node.Llike + ...
                         out.Allnodes{n-1}.Llike + out.Allnodes{n}.Llike;
                     parentchildagree(out);
+                    [~,out] = prior_eval(out,X);
                     return;
                 end
             end
@@ -190,7 +197,7 @@ classdef Tree
         
         % Prune Function
         % pind is the pruned node's index in the original obj (tree)
-        function [out,pind] = prune(obj,y)
+        function [out,pind] = prune(obj,y,X)
             if length(obj.Allnodes) > 1
                 % Find parents of two-terminal nodes
                 [I,~] = terminalparents(obj);
@@ -201,7 +208,8 @@ classdef Tree
                     pind = I;
                 end
                 % Prune the node
-                out = delnode(obj,pind,y);     
+                out = delnode(obj,pind,y);  
+                [~,out] = prior_eval(out,X);
                 parentchildagree(out);
                 duplicateIDs(out);
             else
@@ -246,14 +254,15 @@ classdef Tree
                     end
                 end
                 
+                % Update splits if necessary
+                if node.Updatesplits == 1
+                    node = getsplits(node,X,obj.Leafmin);
+                end
+                % Store updated splitvals even if the change step does not
+                % happen 
+                out0.Allnodes{changeind} = node;
+                
                 if priordraw % Draw from the prior
-                    % Update splits if necessary
-                    if node.Updatesplits == 1
-                        node = getsplits(node,X,obj.Leafmin);
-                    end
-                    % Store updated splitvals even if the change step does not
-                    % happen 
-                    out0.Allnodes{changeind} = node;
                     % Choose a variable to split on
                     varind = find(node.nSplits > 0); % index on available variables
                     % Randomly order available variables
@@ -291,6 +300,7 @@ classdef Tree
                                 %treestar = llike(treestar,nodestar.Rchild,y);
                                 treestar = llike_termnodes(treestar,y);
                                 out = treestar;
+                                [~,out] = prior_eval(out,X);
                                 parentchildagree(out);
                                 duplicateIDs(out);
                                 return;
@@ -299,7 +309,7 @@ classdef Tree
                     end
                 else % Sequentially move rule one value to left or right
                     % Find the index of the rule in Splitvals
-                    % CAlcualte log-likelihood of chosen rule...
+                    % Calcualte log-likelihood of chosen rule...
                     %cont = 1;
                     endcont = 1;
                     [n,trees] = getchangerules(out0,changeind,X);
@@ -316,6 +326,7 @@ classdef Tree
                         out = out0;
                     end
                     out = llike_termnodes(out,y);
+                    [~,out] = prior_eval(out,X);
                     n2 = getchangerules(out,changeind,X);
                     nchange2 = sum(n2);
                     return; % Never need to go through the loop
@@ -338,6 +349,9 @@ classdef Tree
             if isempty(rind) % possibly rules have changed above it...
                 % This does not change the leaf nodes below...
                 rind = find(oldrule >= rules,1,'last');
+                if isempty(rind)
+                    meh = 0;
+                end
             end
             Ltreecalc = 0;
             Rtreecalc = 0;
@@ -480,6 +494,7 @@ classdef Tree
                         if llikecalc
                             out = llike_termnodes(out,y);
                         end
+                        [~,out] = prior_eval(out,X);
                         parentchildagree(out);
                         duplicateIDs(out);
                         swappossible = 1;
@@ -542,18 +557,29 @@ classdef Tree
                     % Assign the Xind from parent to child
                     node.Xind = nodeParent.Xind;
                     
+                    % The splits will need to be updated
+                    node.Updatesplits = 1;
+                    nodeParent.Updatesplits = 1;
+                    node.Updatellike = 1;
+                    nodeParent.Updatellike = 1;
 
                     % Put nodes back in tree
                     out.Allnodes{nind} = node;
                     out.Allnodes{nindParent} = nodeParent;
                     out.Allnodes{nind2} = node2;
                     % Update descendent data
-                    out = descendentdata(out,node.Id,X);
+                    if grandparent
+                        out = descendentdata(out,nodeGrandparent.Id,X);
+                    else
+                        node.Xind = 1:size(X,2);
+                        out = descendentdata(out,node.Id,X);
+                    end
                     % Update Depths
                     out = depthupdate(out,node.Id);
                     parentchildagree(out);
                     duplicateIDs(out);
                     swappossible = 1;
+                    [~,out] = prior_eval(out,X);
                     return;
                 end
             end  
@@ -957,11 +983,13 @@ classdef Tree
                         out.Allnodes{ii} = node;
                     end
                     lprior = lprior + log(obj.gamma) - obj.beta*log(1 + d) - ...
-                        log(sum(node.nSplits));
+                        log(sum(node.nSplits > 0)) - log(node.nSplits(node.Rule{1}));
+                %log(sum(node.nSplits));
                 else % if a terminal node
                     lprior = lprior + log(1 - obj.gamma/(1 + d)^obj.beta);
                 end                   
             end
+            out.Prior = lprior;
         end
             
         
@@ -1136,5 +1164,44 @@ classdef Tree
                 end
             end
         end
+        
+        % Check to see if the getsplits funcion has failed
+        function [problem,I] = getsplitcheck(obj,X)
+            problem = 0;
+            I = [];
+            for ii = 1:length(obj.Allnodes)
+                node = obj.Allnodes{ii};
+                updatednode = getsplits(node,X,obj.Leafmin);
+                if node.Updatesplits == 0
+                    if updatednode.Updatesplits == 0
+                        % Check to make sure they match
+                        if all(node.nSplits == updatednode.nSplits)
+                            for jj = 1:length(node.Splitvals)
+                                rules1 = sort(node.Splitvals{jj});
+                                rules2 = sort(updatednode.Splitvals{jj});
+                                if isa(rules1,'cell')
+                                    if ~all(strcmp(rules1,rules2))
+                                        problem = 1;
+                                        I = [I,ii];
+                                    end
+                                else
+                                    if ~all(rules1 == rules2)
+                                        problem = 1;
+                                        I = [I,ii];
+                                    end
+                                end   
+                            end
+                        else
+                            problem = 1;
+                            I = [I,ii];
+                        end
+                    else
+                        error('Should not happen.')
+                    end
+                end
+            end
+        end
+            
+        
     end             
 end
