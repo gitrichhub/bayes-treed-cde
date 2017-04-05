@@ -106,7 +106,9 @@ function [output,swap_percent_global] = TreeMCMCparalleltemp(y,X,nmcmc,burn,leaf
             if mod(ii,swapfreq) == 0
                 % Propose a switch of chains and send to all workers
                 if myname == master
-                    swapind = randsample(m,2);
+                    swapind = zeros(1,2);
+                    swapind(1) = randsample(m-1,1);
+                    swapind(2) = swapind(1) + 1;
                     swapind = labBroadcast(master,swapind);
                 else
                     swapind = labBroadcast(master); 
