@@ -13,16 +13,18 @@ classdef Tree
         ygrid
         ygridn
         m % grid points for y
-        Lliketree % Tree log-likelihood       
+        Lliketree % Tree log-likelihood (not computed with temp)      
         Leafmin % minimum number of values at a leaf
         gamma
         beta
         Prior
+        Temp
+        Ntermnodes
         %Updateprior        
     end
     methods
         % Constructor
-        function out = Tree(y,X,Leafmin,gamma,beta)
+        function out = Tree(y,X,Leafmin,gamma,beta,temp)
             % Store data
             % out.X = X;
             % Create root node
@@ -100,6 +102,8 @@ classdef Tree
             out.Lliketree = out.Allnodes{1}.Llike;
             
             [~,out] = prior_eval(out,X);
+            out.Temp = temp;
+            out.Ntermnodes = 1;
             %out.Updateprior = 0;
         end
         
@@ -189,6 +193,7 @@ classdef Tree
                         out.Allnodes{n-1}.Llike + out.Allnodes{n}.Llike;
                     parentchildagree(out);
                     [~,out] = prior_eval(out,X);
+                    out.Ntermnodes = out.Ntermnodes + 1;
                     return;
                 end
             end
@@ -210,6 +215,7 @@ classdef Tree
                 % Prune the node
                 out = delnode(obj,pind,y);  
                 [~,out] = prior_eval(out,X);
+                out.Ntermnodes = out.Ntermnodes - 1;
                 parentchildagree(out);
                 duplicateIDs(out);
             else

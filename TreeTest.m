@@ -48,18 +48,30 @@ y3 = y;
 dat3 = dat;
 
 rng(3399)
-% Temp of 0, should prefer smaller trees (tre of size 0 tecnically) because of prior...
-results30 = TreeMCMCtemp(y3,dat3,50,50,25,.05,10,.75,0);
+% Temp of 0, should prefer smaller trees (tree of size 1 tecnically) because of prior...
+results30 = TreeMCMCtemp(y3,dat3,100,0,25,.05,10,.75,0);
 
 rng(283912)
 % Temp of 1, should match results 3 below;
 results31 = TreeMCMCtemp(y3,dat3,10,10,25,.05,10,.75,1);
+
+% Parallel Tempering
+% Start parpool
+parpool(4)
+addpath(genpath('/home/grad/richard/Documents/mallick/density2/GPstuff-4.7'));
+tic
+rng(112)
+[results3pt,sp] = TreeMCMCparalleltemp(y3,dat3,100,100,25,.05,10,.75,.5,2);
+toc
+
 
 rng(283912)
 tic
 results3 = TreeMCMC(y3,dat3,10,10,25,.05,10,.75);
 toc
 Treeplot(results3.Trees{10000})
+
+
 
 % Multiset
 rng(1038)

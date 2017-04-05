@@ -1,7 +1,8 @@
-function [Tstar,Tstarprior,prop_ratio,r,lr] = proposeTree(T,Tprior,y,X,allprobs,p,temp,mset)
+function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
     % T: current tre
     % y: dependent variable
     % X: Data
+    Tprior = T.Prior;
     
     % Initial values
     lr = [];
