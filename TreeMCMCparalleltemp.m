@@ -55,8 +55,17 @@ function [output,swap_percent_global] = TreeMCMCparalleltemp(y,X,nmcmc,burn,leaf
         poolsize = poolobj.NumWorkers;
     end
     m = poolsize;
-    delta = (1/hottemp - 1)/(m-1);
-    temps = [1, 1./(1 + delta*(1:m - 1))];
+    % Harmonic Temperatures
+    %delta = (1/hottemp - 1)/(m-1);
+    %temps = [1, 1./(1 + delta*(1:m - 1))];
+    
+    % Sigmoidal temperatures
+    j1 = log( 1/(-1 + 1.01) - 1);
+    jm = log( 1/(-hottemp + 1.01) - 1);
+    dm = (jm-j1)/(m-1);
+    js = j1:dm:jm;
+    temps = 1.01 - 1./(1 + exp(js));
+    
     
     spmdsize = min([poolsize,m]);
     if spmdsize < m
@@ -106,7 +115,9 @@ function [output,swap_percent_global] = TreeMCMCparalleltemp(y,X,nmcmc,burn,leaf
             if mod(ii,swapfreq) == 0
                 % Propose a switch of chains and send to all workers
                 if myname == master
-                    swapind = randsample(m,2);
+                    swapind = zeros(1,2);
+                    swapind(1) = randsample(m-1,1);
+                    swapind(2) = swapind(1) + 1;
                     swapind = labBroadcast(master,swapind);
                 else
                     swapind = labBroadcast(master); 
