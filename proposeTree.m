@@ -99,7 +99,13 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
         else % not a prior draw
             if startcont
                 if endcont
-                    prop_ratio = log(nchange/nchange2);
+                    if nchange > 0 && nchange2 > 0
+                        prop_ratio = log(nchange/nchange2);
+                    elseif nchange == 0 && nchange2 == 0
+                        prop_ratio = 0;
+                    else
+                        error('Should not occur')
+                    end
                 else
                     error('This should not happen.')
                 end

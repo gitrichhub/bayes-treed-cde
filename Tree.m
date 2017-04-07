@@ -355,9 +355,6 @@ classdef Tree
             if isempty(rind) % possibly rules have changed above it...
                 % This does not change the leaf nodes below...
                 rind = find(oldrule >= rules,1,'last');
-                if isempty(rind)
-                    meh = 0;
-                end
             end
             Ltreecalc = 0;
             Rtreecalc = 0;
@@ -368,7 +365,11 @@ classdef Tree
                 Rtreecalc = 1;
             elseif rind == nrules && nrules > 1
                 Ltreecalc = 1;
+            elseif rind == 1 && nrules == 1
+                % Move either direction isn't possible
             else
+                rind
+                nrules
                 error('Logic is bad.');
             end
             if Ltreecalc
