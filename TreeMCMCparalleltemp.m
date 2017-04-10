@@ -240,6 +240,8 @@ function [output,swap_percent_global] = TreeMCMCparalleltemp(y,X,nmcmc,burn,leaf
         output = struct('Trees',{TREES},'llike',LLIKE,'acceptance',perc_accept,...
             'treesize',treesize,'move_accepts',move_accepts,...
             'swap_accept',swap_accept);
+        % Keep only the true chain
+        output = output{1};
     end
     swap_percent_global = swapaccepttotal_global{1}/swaptotal_global{1};
     %output{'swap_accept_global'} = swapaccepttotal_global{1}/swaptotal_global{1};
