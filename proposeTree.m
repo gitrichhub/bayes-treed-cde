@@ -129,7 +129,8 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
         nTstar = nswaps(Tstar,y,X);
         prop_ratio = log(nT/nTstar);
         if ~mset
-            lr = Tstarprior - Tprior + prop_ratio;
+            lr = temp*(Tstar.Lliketree - T.Lliketree) + ...
+                Tstarprior - Tprior + prop_ratio;
         end
         %n_s_total = n_s_total + 1;
         %n_totals(4) = ntotals(4) + 1;
