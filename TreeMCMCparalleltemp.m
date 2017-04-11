@@ -1,4 +1,4 @@
-function [output,swap_percent_global] = TreeMCMCparalleltemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,hottemp,swapfreq)
+function TreeMCMCparalleltemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,hottemp,swapfreq,filepath)
     % TODO: 
     % Check for format of input variables
     if ~isnumeric(y)
@@ -211,7 +211,7 @@ function [output,swap_percent_global] = TreeMCMCparalleltemp(y,X,nmcmc,burn,leaf
             
             
             %if myname == master % Print progress
-                if mod(ii,10) == 0
+                if mod(ii,100) == 0
                     disp(['i = ',num2str(ii),', ID = ',num2str(myname),', llike = ',num2str(T.Lliketree),...
                         ', accept = ',num2str(naccept/ii),...
                         ', swapaccept = ',num2str(swapaccepttotal),'/',num2str(swaptotal),...
@@ -240,12 +240,26 @@ function [output,swap_percent_global] = TreeMCMCparalleltemp(y,X,nmcmc,burn,leaf
         output = struct('Trees',{TREES},'llike',LLIKE,'acceptance',perc_accept,...
             'treesize',treesize,'move_accepts',move_accepts,...
             'swap_accept',swap_accept);
+        
+        fname = strcat(filepath,'mcmc_id',num2str(myname),'.mat');
+        swap_percent_global = swapaccepttotal_global/swaptotal_global;
+        strt = tic;
+        savedata(fname,output,swap_percent_global);
+        stp = toc(strt);
+        savetime = stp - strt
+        
+        % Save Output
+        
         % Keep only the true chain
-        output = output{1};
+        % output = output{1};
     end
-    swap_percent_global = swapaccepttotal_global{1}/swaptotal_global{1};
+    %swap_percent_global = swapaccepttotal_global{1}/swaptotal_global{1};
     %output{'swap_accept_global'} = swapaccepttotal_global{1}/swaptotal_global{1};
     %output = output0{1};
+end
+
+function savedata(fname,output,swp_perc)
+    save(fname,'output','swp_perc')
 end
 
     
