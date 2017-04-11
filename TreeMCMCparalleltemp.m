@@ -1,18 +1,90 @@
-function TreeMCMCparalleltemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,hottemp,swapfreq,filepath)
+function TreeMCMCparalleltemp(y,X,varargin)
+    % Parse function
+    ip = inputParser;
+    ip.FunctionName = 'TreeMCMCparalleltemp';
+    % Required Inputs
+    addRequired(ip,'y',@isnumeric);
+    addRequired(ip,'X',@istable);
+    % Optional Inputs
+    addParameter(ip,'nmcmc',10000)
+    addParameter(ip,'burn',1000)
+    addParameter(ip,'leafmin',25)
+    addParameter(ip,'gamma',.95)
+    addParameter(ip,'beta',1)
+    addParameter(ip,'p',.75)
+    addParameter(ip,'hottemp',.1)
+    addParameter(ip,'swapfreq',1);
+    addParameter(ip,'filepath','./')
+    
+    parse(ip,y,X,varargin{:});
+    y = ip.y;
+    X = ip.X;
+    nmcmc = ip.nmcmc;
+    burn = ip.burn;
+    leafmin = ip.leafmin;
+    gamma = ip.gamma;
+    beta = ip.beta;
+    p = ip.p;
+    hottemp = ip.hottemp;
+    swapfreq = ip.swapfreq;
+    filepath = ip.filepath;
+    
+    % Validation of values
+    if length(y) ~= size(X,2)
+        error('The dimensions of y and X must agree.')
+    end
+    if mod(nmcmc,1) ~= 0 || nmcmc < 1
+        error('nmcmc must be a postiive integer value.')
+    end
+    if mod(burn,1) ~= 0 || burn < 0
+        error('burn must be a postive integer value.')
+    end
+    if mod(leafmin,1) ~= 0 || leafmin < 1
+        error('leafmin must be a positive integer value.')
+    end
+    if gamma <= 0  || gamma >= 1
+        error('gamma must be between 0 and 1')
+    end
+    if beta < 0
+        error('beta must be positive.')
+    end
+    if p < 0 || p > 1
+        error('p must be between 0 and 1')
+    end
+    if hottemp >= 1 || hottemp <= .01
+        error('hottemp must be between .01 and 1')
+    end
+    if mod(swapfreq,1) ~= 0 || swapfreq < 1
+        error('swapfreq must be an integer >= 1.')
+    end
+    
+    
+    
+    
+    % Add output directory if directory is current directory
+    if strcmp(filepath,'./')
+        mkdir('output')
+        disp('NOTE: Created output directory in current working directory.')
+        filepath = './output/';
+    end
+    
+
+
+
     % TODO: 
     % Check for format of input variables
-    if ~isnumeric(y)
-        error('y must be numeric.')
-    end
-    if ~istable(X)
-        error('X must be a table.')
-    end
-    if length(nmcmc) ~= 1 
-        error('input arg "nmcmc" must be a scalar integer.')
-    end
-    if length(burn) ~= 1
-        error('input arg "burn" must be a scalar integer.')
-    end
+%     if ~isnumeric(y)
+%         error('y must be numeric.')
+%     end
+%     if ~istable(X)
+%         error('X must be a table.')
+%     end
+%     if length(nmcmc) ~= 1 
+%         error('input arg "nmcmc" must be a scalar integer.')
+%     end
+%     if length(burn) ~= 1
+%         error('input arg "burn" must be a scalar integer.')
+%     end
     
     if isempty(p)
         p = .75;
@@ -241,15 +313,14 @@ function TreeMCMCparalleltemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,hottemp,swapfr
             'treesize',treesize,'move_accepts',move_accepts,...
             'swap_accept',swap_accept);
         
+        % Save output for each worker
         fname = strcat(filepath,'mcmc_id',num2str(myname),'.mat');
         swap_percent_global = swapaccepttotal_global/swaptotal_global;
         strt = tic;
         savedata(fname,output,swap_percent_global);
         stp = toc(strt);
         savetime = stp - strt
-        
-        % Save Output
-        
+               
         % Keep only the true chain
         % output = output{1};
     end
