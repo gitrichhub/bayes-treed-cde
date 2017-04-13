@@ -136,6 +136,10 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
         %n_totals(4) = ntotals(4) + 1;
     end
     
+    if ~isfinite(lr)
+        error('Non-finite likelihood ratio')
+    end
+    
     %tsize = ceil(length(Tstar.Allnodes)/2);
 end
     

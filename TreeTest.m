@@ -57,12 +57,14 @@ results31 = TreeMCMCtemp(y3,dat3,10,10,25,.05,10,.75,1);
 
 % Parallel Tempering
 % Start parpool
-parpool(4)
+parpool(10)
 addpath(genpath('/home/grad/richard/Documents/mallick/density2/GPstuff-4.7'));
 tic
-rng(112)
-[results3pt,sp] = TreeMCMCparalleltemp(y3,dat3,100,100,25,.05,10,.75,.5,2);
+rng(5567)
+TreeMCMCparalleltemp(y3,dat3,'nmcmc',1000,'burn',100,'filepath','../output2/');
 toc
+
+
 
 
 rng(283912)
@@ -70,6 +72,54 @@ tic
 results3 = TreeMCMC(y3,dat3,10,10,25,.05,10,.75);
 toc
 Treeplot(results3.Trees{10000})
+
+
+
+% Categorical variable (different distribution for each one 
+rng(535)
+N = 1200;
+grps = {'A','B','C','D'};
+x1 = grps(randsample(length(grps),N,true))';
+dat = table(x1);
+y = zeros(N,1);
+I = strcmp(x1,'A');
+y(I) = 1;
+I = strcmp(x1,'B');
+y(I) = 5;
+I = strcmp(x1,'C');
+y(I) = 9;
+I = strcmp(x1,'D');
+y(I) = 13;
+y = y + normrnd(0,1,N,1);
+y2 = y;
+dat2 = dat;
+
+rng(444)
+tic
+TreeMCMCparalleltemp(y2,dat2,'nmcmc',100,'burn',100,'filepath','../output2/');
+toc
+
+% Categorical variable (multiple groups)
+rng(6671)
+N = 1200;
+grps = {'A','B','C','D'};
+x1 = randsample(grps,N,true)';
+dat = table(x1);
+y = zeros(N,1);
+I = ismember(x1,{'A','B'});
+y(I) = 1;
+I = ismember(x1,{'C','D'});
+y(I) = 5;
+y = y + normrnd(0,1,N,1);
+y3 = y;
+dat3 = dat;
+
+rng(302)
+tic
+TreeMCMCparalleltemp(y3,dat3,'nmcmc',100,'burn',100,'filepath','../output3/');
+toc
+
+
 
 
 
@@ -114,12 +164,18 @@ b2.Allnodes{1}.Rule{2} = b.Allnodes{1}.Splitvals{1}(end-1);
 [d2,priordraw,startcont,endcont,nchange,nchange2] = change(b2,y,dat,.75)
 
 rng(25)
-a = Tree(y,dat,[],.5,1);
+a = Tree(y,dat,[],.5,1,1);
 b = birth(a,y,dat);
 c = birth(b,y,dat);
 d = birth(c,y,dat);
 e = birth(d,y,dat);
-f = change(e,y,dat);
+f = change(e,y,dat,.75);
+alltrees = cell(1,1000);
+for ww=1:1000
+    f = change(f,y,dat,.1);
+    alltrees{ww} = f;
+end
+
 g = prune(f,y);
 h = swap(g,y,dat);
 

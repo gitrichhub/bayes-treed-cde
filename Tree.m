@@ -174,8 +174,19 @@ classdef Tree
                     % Add children nodes;
                     % Find unique new IDs for children
                     newids = newIDs(obj);
+                    
+                    if length(node.Xind) < out.Leafmin
+                        error('bad start in leaf')
+                    end
                     % Get data which is being passed down from parent
                     [XindL,XindR] = childrendata(out,birthID,X); % must use out since it has the new rule
+                    
+                    % TODO: remove error check
+                    if length(XindL) < out.Leafmin || length(XindR) < out.Leafmin
+                        error('leaf is bad')
+                    end
+                    
+                    
                     % Add Nodes
                     newdepth = node.Depth + 1;
                     if any(ismember(newids,out.NodeIds))
@@ -260,10 +271,45 @@ classdef Tree
                     end
                 end
                 
+                oldrule = node.Rule; % TODO: remove this later (error checking purpose)
                 % Update splits if necessary
                 if node.Updatesplits == 1
                     node = getsplits(node,X,obj.Leafmin);
                 end
+                
+                % TODO: delete later...
+                % Error checking
+                psplits = node.Splitvals{oldrule{1}};
+                ruleinthere = 0;
+                if isa(psplits,'cell')
+                    for jj = 1:length(psplits)
+                        nrule = psplits{jj};
+                        if length(nrule) == length(oldrule{2})
+                            if all(strcmp(sort(nrule),sort(oldrule{2})))
+                                ruleinthere = 1;
+                            end
+                        end
+                    end
+                    if ~ruleinthere
+                        myid = node.Id
+                        rulevar = oldrule{1}
+                        myrule = oldrule{2}
+%                         for jj = 1:length(out0.Allnodes)
+%                             jj
+%                             tnode = out0.Allnodes{jj};
+%                             [tnode.Id,tnode.Parent,tnode.Lchild,tnode.Rchild]
+%                             tnode.Rule
+%                             tnode.Rule{2}
+%                         end
+                        printstructure(out0)
+                        Treeplot(out0)
+                        error('Old rule not a candidate for prior draw');
+                    end
+                end
+                        
+                    
+                
+                
                 % Store updated splitvals even if the change step does not
                 % happen 
                 out0.Allnodes{changeind} = node;
@@ -300,6 +346,7 @@ classdef Tree
                             % Check to see if rule leaves a tree with enough 
                             %   observations at each terminal node.
                             treestar = descendentdata(treestar,nodestar.Id,X);
+                            
                             if treestar.Smallnodes == 0
                                 % Compute log-likelihood of terminal nodes;
                                 %treestar = llike(treestar,nodestar.Lchild,y);
@@ -307,6 +354,22 @@ classdef Tree
                                 treestar = llike_termnodes(treestar,y);
                                 out = treestar;
                                 [~,out] = prior_eval(out,X);
+                                % Fix any classification rules which are
+                                % not up to date
+                                for mm = 1:length(out.Allnodes)
+                                    mynode = out.Allnodes{mm};
+                                    if ~isempty(mynode.Rule)
+                                        myrule = mynode.Rule{2};
+                                        if isa(myrule,'cell')
+                                            uq = unique(X{mynode.Xind,mynode.Rule{1}});
+                                            myrule = myrule(ismember(myrule,uq)); % New Rule L
+                                            mynode.Rule{2} = myrule;
+                                            out.Allnodes{mm} = mynode;
+                                        end
+                                    end
+                                end
+                                
+                                
                                 parentchildagree(out);
                                 duplicateIDs(out);
                                 return;
@@ -841,9 +904,12 @@ classdef Tree
             end
             if strcmp(obj.Xclass(therule{1}),'double')
                 %I = find(table2array(X(node.Xind,therule.Varcol)) <= therule.Varrule);
-                I = table2array(X(node.Xind,therule{1})) <= therule{2} ;
+                % I = table2array(X(node.Xind,therule{1})) <= therule{2} ;
+                I = X{node.Xind,therule{1}} <= therule{2};
             elseif strcmp(obj.Xclass(therule{1}),'cell')
-                I = ismember(table2cell(X(node.Xind,therule{1})),therule{2}{1});
+                %I = ismember(table2cell(X(node.Xind,therule{1})),therule{2}{1});
+                % I = ismember(table2cell(X(node.Xind,therule{1})),therule{2});
+                I = ismember(X{node.Xind,therule{1}},therule{2});
             else
                 error('Unexpected variable class found.')
             end
@@ -883,6 +949,33 @@ classdef Tree
                 nindR = nodeind(out,node2.Rchild);
                 out = updatedata(out,nindL,XindL);
                 out = updatedata(out,nindR,XindR);
+                
+                
+                
+%                 nodeL = out.Allnodes{nindL};
+%                 nodeR = out.Allnodes{nindR};
+%                 if ~isempty(nodeL.Rule)
+%                     if isa(nodeL.Rule{2},'cell')
+%                         Treeplot(out)
+%                         ruleL = nodeL.Rule{2}
+%                         uq = unique(X{nodeL.Xind,nodeL.Rule{1}})
+%                         ruleL = ruleL{ismember(ruleL,uq)}; % New Rule L
+%                         nodeL.Rule{2} = ruleL;
+%                         out.Allnodes{nindL} = nodeL;
+%                     end
+%                 end
+%                 if ~isempty(nodeR.Rule)
+%                     if isa(nodeR.Rule{2},'cell')
+%                         ruleL = nodeR.Rule{2};
+%                         uq = unique(X{nodeR.Xind,nodeR.Rule{1}});
+%                         ruleR = ruleR{ismember(ruleR,uq)}; % New Rule R
+%                         nodeR.Rule{2} = ruleR;
+%                         out.Allnodes{nindR} = nodeR;
+%                     end
+%                 end
+                
+                
+                
                 % Now do it for the descendents
                 out = descendentdata(out,node2.Lchild,X);
                 out = descendentdata(out,node2.Rchild,X);
@@ -991,6 +1084,17 @@ classdef Tree
                     end
                     lprior = lprior + log(obj.gamma) - obj.beta*log(1 + d) - ...
                         log(sum(node.nSplits > 0)) - log(node.nSplits(node.Rule{1}));
+                    if ~isfinite(lprior)
+                        betadepth = obj.beta*log(1 + d)
+                        nvars = log(sum(node.nSplits > 0))
+                        nsplits = log(node.nSplits(node.Rule{1}))
+                        node.nSplits(node.Rule{1})
+                        node.Splitvals{node.Rule{1}}
+                        Treeplot(out)
+                        id = node.Id
+                        therule = node.Rule{2}
+                        error('non-finite prior evaluation')
+                    end
                 %log(sum(node.nSplits));
                 else % if a terminal node
                     lprior = lprior + log(1 - obj.gamma/(1 + d)^obj.beta);
@@ -1095,6 +1199,36 @@ classdef Tree
                 disp(['Id=',num2str(node.Id),', Updatellike=',...
                     num2str(node.Updatellike),...
                     ', Updatesplits=',num2str(node.Updatesplits),...
+                    ', Terminalnode=',tnode]);
+            end     
+        end
+        
+        function printstructure(obj)
+            for ii = 1:length(obj.Allnodes)
+                node = obj.Allnodes{ii};
+                if isempty(node.Rule)
+                    tnode = 'yes';
+                else
+                    tnode = 'no';
+                end
+                if ~isempty(node.Rule)
+                    therule = node.Rule{2};
+                    if isa(therule,'double')
+                        therule = num2str(therule);
+                    else
+                        therule = char(therule)';
+                    end
+                    rulevar = num2str(node.Rule{1});
+                else
+                    rulevar = '';
+                    therule = '';
+                end
+                disp(['Id=',num2str(node.Id),...
+                    ', Parent=',num2str(node.Parent),...
+                    ', Lchild=',num2str(node.Lchild),...
+                    ', Rchild=',num2str(node.Rchild),...
+                    ', Rulevar=',rulevar,...
+                    ', Rule=',therule,...
                     ', Terminalnode=',tnode]);
             end     
         end

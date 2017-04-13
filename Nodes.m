@@ -134,9 +134,15 @@ classdef Nodes
             end
             
             if sum(out.nSplits) > 0
-                vindex = out.nSplits > 0;
-                vind = randsample(find(vindex),1); % Variable index
+                vindex = find(out.nSplits > 0);
+                vind = vindex(randsample(length(vindex),1)); % Variable index
                 % Now randomly sample a rule
+%                 nsplits = out.nSplits
+%                 splitvals = out.Splitvals
+%                 rule = out.Rule
+%                 parent = out.Parent
+%                 lchild = out.Lchild
+%                 rchild = out.Rchild
                 svals = out.Splitvals{vind};
                 if isa(svals,'cell')
                     newrule = svals{randsample(length(svals),1)};
@@ -268,8 +274,9 @@ classdef Nodes
                         end
                     end
                 elseif isa(xsub,'cell')
-                    if length(unique(xsub)) > 2
-                        thetab = tabulate(xsub);
+                    thetab = tabulate(xsub);
+                    if length(unique(xsub)) > 1
+                        % thetab = tabulate(xsub);
                         % group = thetab(:,1);
                         ngroup = size(thetab,1);
                         gdiv2 = floor(ngroup/2); % ngroup/2 and rounded down
@@ -283,6 +290,11 @@ classdef Nodes
                         % More comptuationally demanding case
                         for jj = 1:gdiv2
                             cmat = combnk(1:ngroup,jj);
+%                             if jj == gdiv2 && mod(ngroup,2) == 0 % subset if necessary to avoid double counts
+%                                 % ncmat = size(cmat,1);
+%                                 I_cmat = cmat(:,1) == 1;
+%                                 cmat = cmat(I_cmat,:);
+%                             end
                             for kk = 1:size(cmat,1)
                                 ngroup1 = sum(cell2mat(thetab(cmat(kk,:),2)));
                                 ngroup2 = nsub - ngroup1;
@@ -291,14 +303,35 @@ classdef Nodes
                                     svals{nsplits} = thetab(cmat(kk,:),1);
                                 end
                             end
+                            if jj == gdiv2 && mod(ngroup,2) == 0
+                                % In this case, we have "duplicate" rules
+                                ncmat = size(cmat,1);
+                                nsplits = nsplits - ncmat/2;
+                            end
                         end
                         %end
-                    elseif length(unique(xsub)) == 2 && all(cell2mat(thetab(:,2)) > leafmin)
-                        nsplits = 1;
+                    elseif length(unique(xsub)) == 1 %&& all(cell2mat(thetab(:,2)) >= leafmin)
+                        % nsplits = 1;
+                        % svals{1} = thetab(1,1);
+                    %elseif length(unique(xsub)) == 1 && ~all(cell2mat(thetab(:,2)) > leafmin)
+                        % Use default values of nsplits an&& all(cell2mat(thetab(:,2)) > leafmin)d svals
+                    else
+                        c1 = length(unique(xsub))
+                        c2 = all(cell2mat(thetab(:,2)) > leafmin)
+                        thetab
+                        % orig = obj
+                        % newone = out
+                        error('Unexpected case.')
                     end
                 else
                     error('Data type received was not expected.')
                 end
+                
+                % TODO: remove this case
+                if nsplits == 1 && isempty(svals)
+                    error('problem here')
+                end
+                
                 nSplit(ii) = nsplits;
                 splitvals{ii} = svals;
             end

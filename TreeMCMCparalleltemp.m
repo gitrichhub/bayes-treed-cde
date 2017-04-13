@@ -17,20 +17,20 @@ function TreeMCMCparalleltemp(y,X,varargin)
     addParameter(ip,'filepath','./')
     
     parse(ip,y,X,varargin{:});
-    y = ip.y;
-    X = ip.X;
-    nmcmc = ip.nmcmc;
-    burn = ip.burn;
-    leafmin = ip.leafmin;
-    gamma = ip.gamma;
-    beta = ip.beta;
-    p = ip.p;
-    hottemp = ip.hottemp;
-    swapfreq = ip.swapfreq;
-    filepath = ip.filepath;
+    y = ip.Results.y;
+    X = ip.Results.X;
+    nmcmc = ip.Results.nmcmc;
+    burn = ip.Results.burn;
+    leafmin = ip.Results.leafmin;
+    gamma = ip.Results.gamma;
+    beta = ip.Results.beta;
+    p = ip.Results.p;
+    hottemp = ip.Results.hottemp;
+    swapfreq = ip.Results.swapfreq;
+    filepath = ip.Results.filepath;
     
     % Validation of values
-    if length(y) ~= size(X,2)
+    if length(y) ~= size(X,1)
         error('The dimensions of y and X must agree.')
     end
     if mod(nmcmc,1) ~= 0 || nmcmc < 1
@@ -57,9 +57,14 @@ function TreeMCMCparalleltemp(y,X,varargin)
     if mod(swapfreq,1) ~= 0 || swapfreq < 1
         error('swapfreq must be an integer >= 1.')
     end
-    
-    
-    
+    if strcmp(filepath,'./')
+        mkdir('output')
+        disp('NOTE: Created output directory in current working directory.')
+        filepath = './output/';
+    elseif ~isdir(filepath)
+        mkdir(filepath)
+        disp(strcat(['NOTE: Creating output directory ',filepath]))
+    end
     
     % Add output directory if directory is current directory
     if strcmp(filepath,'./')
@@ -68,30 +73,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
         filepath = './output/';
     end
     
-
-
-
-    % TODO: 
-    % Check for format of input variables
-%     if ~isnumeric(y)
-%         error('y must be numeric.')
-%     end
-%     if ~istable(X)
-%         error('X must be a table.')
-%     end
-%     if length(nmcmc) ~= 1 
-%         error('input arg "nmcmc" must be a scalar integer.')
-%     end
-%     if length(burn) ~= 1
-%         error('input arg "burn" must be a scalar integer.')
-%     end
-    
-    if isempty(p)
-        p = .75;
-    end
-        
-    
-
     % Probability of proposing steps
     p_g_orig = .25; % grow
     p_p_orig = .25; % prune
@@ -118,8 +99,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
     swapaccepttotal_global = 0;
     swaptotal_global = 0;
     
-        
-    
     poolobj = gcp('nocreate'); % If no pool, do not create new one.
     if isempty(poolobj)
         poolsize = 0;
@@ -137,11 +116,10 @@ function TreeMCMCparalleltemp(y,X,varargin)
     dm = (jm-j1)/(m-1);
     js = j1:dm:jm;
     temps = 1.01 - 1./(1 + exp(js));
-    
-    
+
     spmdsize = min([poolsize,m]);
-    if spmdsize < m
-        error('Number of temperatures cannot exceed number of processes.');
+    if spmdsize < 1
+        error('Must have at least two processes to do parallel tempering.');
     end
     
     spmd(spmdsize)
@@ -235,20 +213,47 @@ function TreeMCMCparalleltemp(y,X,varargin)
 
                 if myname == master
                     swaptotal_global = swaptotal_global + 1;
-%                     temp1 = Tstarswap1.Temp;
-%                     llike1 = Tstarswap1.Lliketree;
-%                     temp2 = Tstarswap2.Temp;
-%                     llike2 = Tstarswap2.Lliketree;
                     lrswap = (Tstarswap2.Temp * Tstarswap1.Lliketree + Tstarswap1.Prior) + ...
                         (Tstarswap1.Temp * Tstarswap2.Lliketree + Tstarswap2.Prior) - ...
                         (Tstarswap1.Temp * Tstarswap1.Lliketree + Tstarswap1.Prior) - ...
                         (Tstarswap2.Temp * Tstarswap2.Lliketree + Tstarswap2.Prior);
+                    %if swapind(1) == master
+                    temp1 = Tstarswap1.Temp;
+                    temp2 = Tstarswap2.Temp;
+                    llike1 = Tstarswap1.Lliketree;
+                    llike2 = Tstarswap2.Lliketree;
+                    lrswap = lrswap;
+                    if llike1 < llike2 && lrswap < 0
+                        temp1 = Tstarswap1.Temp
+                        temp2 = Tstarswap2.Temp
+                        llike1 = Tstarswap1.Lliketree
+                        llike2 = Tstarswap2.Lliketree
+                        lrswap = lrswap
+                    end
+                    %end
+                    
+                    
+                    
                     %[temp1,llike1,temp2,llike2,lrswap]
+                    if ~isfinite(lrswap)
+                        error('Non-finite swap likelihood ratio.')
+                    end
                     if lrswap > log(rand) % Accept
                         swapaccept = 1;
                     else
                         swapaccept = 0;
                     end
+                    
+%                     if isnan(lrswap)
+%                         temp1 = Tstarswap1.Temp
+%                         temp2 = Tstarswap2.Temp
+%                         llike1 = Tstarswap1.Lliketree
+%                         llike2 = Tstarswap2.Lliketree
+%                         prior1 = Tstarswap1.Prior
+%                         prior2 = Tstarswap2.Prior
+%                     end
+                        
+                    
                     swapaccepttotal_global = swapaccepttotal_global + swapaccept;
                     swapaccept = labBroadcast(master,swapaccept);
                 else
@@ -256,7 +261,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
                 end
 
                 %disp('here3')
-
                 if swapaccept
                     if myname == master
                         if myname ~= swapind(1)
@@ -287,7 +291,8 @@ function TreeMCMCparalleltemp(y,X,varargin)
                     disp(['i = ',num2str(ii),', ID = ',num2str(myname),', llike = ',num2str(T.Lliketree),...
                         ', accept = ',num2str(naccept/ii),...
                         ', swapaccept = ',num2str(swapaccepttotal),'/',num2str(swaptotal),...
-                        ', Size = ',num2str(T.Ntermnodes)]);
+                        ', Size = ',num2str(T.Ntermnodes),...
+                        ', temp = ',num2str(T.Temp)]);
                     if myname == master
                         disp(' ');
                     end
@@ -319,7 +324,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
         strt = tic;
         savedata(fname,output,swap_percent_global);
         stp = toc(strt);
-        savetime = stp - strt
+        savetime = stp - strt;
                
         % Keep only the true chain
         % output = output{1};

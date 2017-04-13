@@ -19,7 +19,7 @@ function [output] = TreeMCMCtemp(y,X,nmcmc,burn,leafmin,gamma,beta,p,temp)
     end
             
     % Initialize root tree
-    T = Tree(y,X,leafmin,gamma,beta);
+    T = Tree(y,X,leafmin,gamma,beta,temp);
     
     % Probability of proposing steps
     p_g_orig = .25; % grow
