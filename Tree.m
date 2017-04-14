@@ -271,42 +271,63 @@ classdef Tree
                     end
                 end
                 
-                oldrule = node.Rule; % TODO: remove this later (error checking purpose)
-                % Update splits if necessary
-                if node.Updatesplits == 1
-                    node = getsplits(node,X,obj.Leafmin);
-                end
-                
-                % TODO: delete later...
-                % Error checking
-                psplits = node.Splitvals{oldrule{1}};
-                ruleinthere = 0;
-                if isa(psplits,'cell')
-                    for jj = 1:length(psplits)
-                        nrule = psplits{jj};
-                        if length(nrule) == length(oldrule{2})
-                            if all(strcmp(sort(nrule),sort(oldrule{2})))
-                                ruleinthere = 1;
+                if 1
+                    oldrule = node.Rule; % TODO: remove this later (error checking purpose)
+                    % Update splits if necessary
+                    if node.Updatesplits == 1
+                        node = getsplits(node,X,obj.Leafmin);
+                    end
+
+                    % TODO: delete later...
+                    % Error checking
+                    psplits = node.Splitvals{oldrule{1}};
+                    ruleinthere = 0;
+                    if isa(psplits,'cell')
+                        for jj = 1:length(psplits)
+                            nrule = psplits{jj};
+                            if length(nrule) == length(oldrule{2})
+                                if all(strcmp(sort(nrule),sort(oldrule{2})))
+                                    ruleinthere = 1;
+                                end
                             end
                         end
-                    end
-                    if ~ruleinthere
-                        myid = node.Id
-                        rulevar = oldrule{1}
-                        myrule = oldrule{2}
-%                         for jj = 1:length(out0.Allnodes)
-%                             jj
-%                             tnode = out0.Allnodes{jj};
-%                             [tnode.Id,tnode.Parent,tnode.Lchild,tnode.Rchild]
-%                             tnode.Rule
-%                             tnode.Rule{2}
-%                         end
-                        printstructure(out0)
-                        Treeplot(out0)
-                        error('Old rule not a candidate for prior draw');
+                        if ~ruleinthere
+                            
+                            
+                            
+                            
+                            myid = node.Id
+                            rulevar = oldrule{1}
+                            myrule = oldrule{2}
+    %                         for jj = 1:length(out0.Allnodes)
+    %                             jj
+    %                             tnode = out0.Allnodes{jj};
+    %                             [tnode.Id,tnode.Parent,tnode.Lchild,tnode.Rchild]
+    %                             tnode.Rule
+    %                             tnode.Rule{2}
+    %                         end
+                            printstructure(out0)
+                            Treeplot(out0)
+                            updatesplits = node.Updatesplits
+                            % Print Rules of node
+                            for mm = 1:length(node.Rule{2})
+                                therules = node.Rule{2}{mm}
+                            end
+
+                            nodeupdated = getsplits(node,X,obj.Leafmin);
+
+                            for mm = 1:length(nodeupdated.Rule{2})
+                                therules2 = nodeupdated.Rule{2}{mm}
+                            end
+
+                            xindlength = length(node.Xind)
+                            tabulate(X{node.Xind,node.Rule{1}})
+
+                            error('Old rule not a candidate for prior draw');
+                        end
                     end
                 end
-                        
+
                     
                 
                 
