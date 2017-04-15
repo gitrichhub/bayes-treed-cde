@@ -389,8 +389,6 @@ classdef Tree
                                         end
                                     end
                                 end
-                                
-                                
                                 parentchildagree(out);
                                 duplicateIDs(out);
                                 return;
@@ -1116,6 +1114,7 @@ classdef Tree
                         Treeplot(out)
                         id = node.Id
                         therule = node.Rule{2}
+                        printstructure(out)
                         error('non-finite prior evaluation')
                     end
                 %log(sum(node.nSplits));

@@ -332,7 +332,7 @@ classdef Nodes
                         % thetab = tabulate(xsub);
                         % group = thetab(:,1);
                         ngroup = size(thetab,1);
-                        gdiv2 = floor(ngroup/2); % ngroup/2 and rounded down
+                        %gdiv2 = floor(ngroup/2); % ngroup/2 and rounded down
 %                         if all(cell2mat(thetab(:,2)) > leafmin) % Easy Case
 %                             ncombn = zeros(gdiv2,1);
 %                             for jj = 1:gdiv2
@@ -341,7 +341,7 @@ classdef Nodes
 %                             nsplits = sum(ncombn);
 %                         else
                         % More comptuationally demanding case
-                        for jj = 1:gdiv2
+                        for jj = 1:ngroup
                             cmat = combnk(1:ngroup,jj);
 %                             if jj == gdiv2 && mod(ngroup,2) == 0 % subset if necessary to avoid double counts
 %                                 % ncmat = size(cmat,1);
@@ -351,17 +351,24 @@ classdef Nodes
                             for kk = 1:size(cmat,1)
                                 ngroup1 = sum(cell2mat(thetab(cmat(kk,:),2)));
                                 ngroup2 = nsub - ngroup1;
-                                if ngroup1 > leafmin && ngroup2 > leafmin
+                                if ngroup1 >= leafmin && ngroup2 >= leafmin
                                     nsplits = nsplits + 1;
                                     svals{nsplits} = thetab(cmat(kk,:),1);
                                 end
                             end
-                            if jj == gdiv2 && mod(ngroup,2) == 0
-                                % In this case, we have "duplicate" rules
-                                ncmat = size(cmat,1);
-                                nsplits = nsplits - ncmat/2;
-                            end
                         end
+                        nsplits = nsplits/2;
+                        if mod(nsplits,1) ~= 0
+                            nsplits
+                            error('nsplits should be an integer')
+                        end
+                        
+                           
+                            %if jj == gdiv2 && mod(ngroup,2) == 0
+                            %    % In this case, we have "duplicate" rules
+                            %    ncmat = size(cmat,1);
+                            %    nsplits = nsplits - ncmat/2;
+                            %end
                         %end
                     elseif length(unique(xsub)) == 1 %&& all(cell2mat(thetab(:,2)) >= leafmin)
                         % nsplits = 1;
@@ -381,7 +388,7 @@ classdef Nodes
                 end
                 
                 % TODO: remove this case
-                if nsplits == 1 && isempty(svals)
+                if nsplits > 0 && isempty(svals)
                     error('problem here')
                 end
                 
