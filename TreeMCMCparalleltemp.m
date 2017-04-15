@@ -14,6 +14,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
     addParameter(ip,'p',.75)
     addParameter(ip,'hottemp',.1)
     addParameter(ip,'swapfreq',1);
+    addParameter(ip,'seed','shuffle');
     addParameter(ip,'filepath','./')
     
     parse(ip,y,X,varargin{:});
@@ -26,8 +27,10 @@ function TreeMCMCparalleltemp(y,X,varargin)
     beta = ip.Results.beta;
     p = ip.Results.p;
     hottemp = ip.Results.hottemp;
+    seed = ip.Results.seed;
     swapfreq = ip.Results.swapfreq;
     filepath = ip.Results.filepath;
+    
     
     % Validation of values
     if length(y) ~= size(X,1)
@@ -122,9 +125,17 @@ function TreeMCMCparalleltemp(y,X,varargin)
         error('Must have at least two processes to do parallel tempering.');
     end
     
+       
     spmd(spmdsize)
         myname = labindex;
         master = 1; % master process labindex
+        
+        % Create independent Random Streams with a seed on each lab
+        s = RandStream.create('mrg32k3a','Numstreams',m,...
+            'StreamIndices',myname,'Seed',seed);
+        RandStream.setGlobalStream(s);
+        
+        rand
 
         % Initialize root tree on each process
         mytemp = temps(myname);
@@ -217,19 +228,13 @@ function TreeMCMCparalleltemp(y,X,varargin)
                         (Tstarswap1.Temp * Tstarswap2.Lliketree + Tstarswap2.Prior) - ...
                         (Tstarswap1.Temp * Tstarswap1.Lliketree + Tstarswap1.Prior) - ...
                         (Tstarswap2.Temp * Tstarswap2.Lliketree + Tstarswap2.Prior);
-                    %if swapind(1) == master
-                    temp1 = Tstarswap1.Temp;
-                    temp2 = Tstarswap2.Temp;
-                    llike1 = Tstarswap1.Lliketree;
-                    llike2 = Tstarswap2.Lliketree;
-                    lrswap = lrswap;
-                    if llike1 < llike2 && lrswap < 0
-                        temp1 = Tstarswap1.Temp
-                        temp2 = Tstarswap2.Temp
-                        llike1 = Tstarswap1.Lliketree
-                        llike2 = Tstarswap2.Lliketree
-                        lrswap = lrswap
-                    end
+%                     if llike1 < llike2 && lrswap < 0
+%                         temp1 = Tstarswap1.Temp
+%                         temp2 = Tstarswap2.Temp
+%                         llike1 = Tstarswap1.Lliketree
+%                         llike2 = Tstarswap2.Lliketree
+%                         lrswap = lrswap
+%                     end
                     %end
                     
                     
