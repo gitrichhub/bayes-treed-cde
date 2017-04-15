@@ -13,6 +13,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
     addParameter(ip,'beta',1)
     addParameter(ip,'p',.75)
     addParameter(ip,'hottemp',.1)
+    addParameter(ip,'saveall',0);
     addParameter(ip,'swapfreq',1);
     addParameter(ip,'seed','shuffle');
     addParameter(ip,'filepath','./')
@@ -27,6 +28,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
     beta = ip.Results.beta;
     p = ip.Results.p;
     hottemp = ip.Results.hottemp;
+    saveall = ip.Results.saveall;
     seed = ip.Results.seed;
     swapfreq = ip.Results.swapfreq;
     filepath = ip.Results.filepath;
@@ -60,13 +62,19 @@ function TreeMCMCparalleltemp(y,X,varargin)
     if mod(swapfreq,1) ~= 0 || swapfreq < 1
         error('swapfreq must be an integer >= 1.')
     end
-    if strcmp(filepath,'./')
+    if strcmp(filepath,'./') && ~isdir('./output')
         mkdir('output')
-        disp('NOTE: Created output directory in current working directory.')
+        disp('NOTE: Creating output directory "./output"')
         filepath = './output/';
+    elseif strcmp(filepath,'./') && isdir('./output')
+        disp(strcat(['NOTE: May overwrite files in ','./output']));
+        filepath = './output';
     elseif ~isdir(filepath)
         mkdir(filepath)
         disp(strcat(['NOTE: Creating output directory ',filepath]))
+    else
+        etext = strcat(['NOTE: May overwrite files in ',filepath]);
+        disp(etext)
     end
     
     % Add output directory if directory is current directory
@@ -134,8 +142,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
         s = RandStream.create('mrg32k3a','Numstreams',m,...
             'StreamIndices',myname,'Seed',seed);
         RandStream.setGlobalStream(s);
-        
-        rand
 
         % Initialize root tree on each process
         mytemp = temps(myname);
@@ -292,7 +298,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
             
             
             %if myname == master % Print progress
-                if mod(ii,100) == 0
+                if mod(ii,10) == 0
                     disp(['i = ',num2str(ii),', ID = ',num2str(myname),', llike = ',num2str(T.Lliketree),...
                         ', accept = ',num2str(naccept/ii),...
                         ', swapaccept = ',num2str(swapaccepttotal),'/',num2str(swaptotal),...
@@ -323,13 +329,21 @@ function TreeMCMCparalleltemp(y,X,varargin)
             'treesize',treesize,'move_accepts',move_accepts,...
             'swap_accept',swap_accept);
         
-        % Save output for each worker
-        fname = strcat(filepath,'mcmc_id',num2str(myname),'.mat');
-        swap_percent_global = swapaccepttotal_global/swaptotal_global;
-        strt = tic;
-        savedata(fname,output,swap_percent_global);
-        stp = toc(strt);
-        savetime = stp - strt;
+        % Save output
+        if saveall
+            savenames = 1:m;
+        else
+            savenames = master;
+        end
+        if any(myname == savenames)
+            fname = strcat(filepath,'mcmc_id',num2str(myname),'.mat');
+            swap_percent_global = swapaccepttotal_global/swaptotal_global;
+            strt = tic;
+            savedata(fname,output,swap_percent_global);
+            stp = toc(strt);
+            savetime = stp - strt;
+        end
+            
                
         % Keep only the true chain
         % output = output{1};
