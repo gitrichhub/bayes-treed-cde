@@ -16,7 +16,11 @@ function TreeMCMCparalleltemp(y,X,varargin)
     addParameter(ip,'saveall',0);
     addParameter(ip,'swapfreq',1);
     addParameter(ip,'seed','shuffle');
+    addParameter(ip,'suppress_errors_on_workers',1);
     addParameter(ip,'filepath','./')
+    
+    % Turn of specific warning from GPStuff
+    %warning('off',)
     
     parse(ip,y,X,varargin{:});
     y = ip.Results.y;
@@ -31,6 +35,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
     saveall = ip.Results.saveall;
     seed = ip.Results.seed;
     swapfreq = ip.Results.swapfreq;
+    suppress_errors_on_workers = ip.Results.suppress_errors_on_workers;
     filepath = ip.Results.filepath;
     
     
@@ -68,7 +73,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
         filepath = './output/';
     elseif strcmp(filepath,'./') && isdir('./output')
         disp(strcat(['NOTE: May overwrite files in ','./output']));
-        filepath = './output';
+        filepath = './output/';
     elseif ~isdir(filepath)
         mkdir(filepath)
         disp(strcat(['NOTE: Creating output directory ',filepath]))
@@ -76,13 +81,10 @@ function TreeMCMCparalleltemp(y,X,varargin)
         etext = strcat(['NOTE: May overwrite files in ',filepath]);
         disp(etext)
     end
-    
-    % Add output directory if directory is current directory
-    if strcmp(filepath,'./')
-        mkdir('output')
-        disp('NOTE: Created output directory in current working directory.')
-        filepath = './output/';
+    if suppress_errors_on_workers
+        disp('NOTE: Errors suppressed on workers.')
     end
+
     
     % Probability of proposing steps
     p_g_orig = .25; % grow
@@ -132,12 +134,15 @@ function TreeMCMCparalleltemp(y,X,varargin)
     if spmdsize < 1
         error('Must have at least two processes to do parallel tempering.');
     end
-    
        
     spmd(spmdsize)
+        if suppress_errors_on_workers
+            warning('off','all')
+        end
         myname = labindex;
         master = 1; % master process labindex
         
+       
         % Create independent Random Streams with a seed on each lab
         s = RandStream.create('mrg32k3a','Numstreams',m,...
             'StreamIndices',myname,'Seed',seed);
@@ -343,7 +348,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
             stp = toc(strt);
             savetime = stp - strt;
         end
-            
+        warning('on','all')
                
         % Keep only the true chain
         % output = output{1};

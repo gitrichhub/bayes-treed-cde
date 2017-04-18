@@ -226,6 +226,11 @@ classdef Nodes
 %         end
         
         function out = loglikefunc(obj,thetree,y)
+            % TODO: Remove next line after fixing issue...
+            % obj.Xind % Print for diagnostics
+            
+            
+            
             % LGP Implementation
             m = thetree.m;
             % Set optim options
@@ -291,6 +296,7 @@ classdef Nodes
 %                 alpha/2 * log(beta) - (alpha + n)/2 * log(beta + gma);
 %             out = obj;
 %             out.Llike = llike;
+            % thing = 'finished'
         end
         
         function out = getsplits(obj,X,leafmin)
