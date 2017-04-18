@@ -136,11 +136,12 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
         %n_totals(4) = ntotals(4) + 1;
     end
     
-    if ~isfinite(lr)
-        error('Non-finite likelihood ratio')
-    end
-    
-    %tsize = ceil(length(Tstar.Allnodes)/2);
+    if isnan(lr)
+        error('Likelihood ratio is not a number')
+    elseif isinf(lr) && lr > 0
+        error('Infinite (positive) likelihood ratio encountered')
+    end % negative infinite likeilihood ratio is ok
+
 end
     
     

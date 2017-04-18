@@ -268,20 +268,26 @@ classdef Nodes
             gpcf1 = gp.cf{1};
             gpcf1 = gpcf_sexp(gpcf1, 'lengthScale', h*repmat(2,[1 size(ygridpartn,2)]));
             gp = gp_set(gp,'cf',gpcf1);
-            gp = gp_optim(gp,ygridpartn,nypart,'opt',opt, 'optimf', @fminlbfgs);
-            % Change GP structure to drop the priors for the 'l' and 'sigma2'
-            %   The LGP paper just optimizes the hyperparameters and then
-            %   just uses those values.  The priors for the hyperparameters are
-            %   simply to aid in finding the smoothness parameters.  The marginal 
-            %   distribution in the paper is given the MAP hyperparameter values.
-            gp.cf{1} = gpcf_sexp(gp.cf{1},'magnSigma2_prior',[],'lengthScale_prior',[]);
-            % Calculate Marginal likelihood and add it to the rest.
-            % X or Xscaled for this part? I think Xscaled is fine and it is better
-            % numerically.  Also, we use Xscaled above, so it must be consistent
-            % with previous estimation.
-            % ll = ll - gpla_e([],gp,'x',X','y',nypart');
+            [gp,~,exitflag] = gp_optim_rdp(gp,ygridpartn,nypart,'opt',opt, 'optimf', @fminlbfgs_rdp);
             out = obj;
-            out.Llike = - gpla_e([],gp,'x',ygridpartn,'y',nypart);
+            if exitflag ~= 4040
+                % Change GP structure to drop the priors for the 'l' and 'sigma2'
+                %   The LGP paper just optimizes the hyperparameters and then
+                %   just uses those values.  The priors for the hyperparameters are
+                %   simply to aid in finding the smoothness parameters.  The marginal 
+                %   distribution in the paper is given the MAP hyperparameter values.
+                gp.cf{1} = gpcf_sexp(gp.cf{1},'magnSigma2_prior',[],'lengthScale_prior',[]);
+                % Calculate Marginal likelihood and add it to the rest.
+                % X or Xscaled for this part? I think Xscaled is fine and it is better
+                % numerically.  Also, we use Xscaled above, so it must be consistent
+                % with previous estimation.
+                out.Llike = - gpla_e([],gp,'x',ygridpartn,'y',nypart);
+            else
+                % disp('Exit flag 4040');
+                out.Llike = -Inf; % Optimization did not work or took too long;
+            end
+            
+           
             
             % Simple CART Implementation
 %             xind = obj.Xind;
