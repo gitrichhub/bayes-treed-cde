@@ -765,7 +765,17 @@ while(true)
     if(gstep>optim.DiffMaxChange), gstep=optim.DiffMaxChange; end
     if(gstep<optim.DiffMinChange), gstep=optim.DiffMinChange; end
     [data,f_alpha]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data, optim);
+    %%%% rdp
+    cntr = 0;
+    %%%%
     while isnan(f_alpha) || isinf(f_alpha)
+      %%%% rdp
+      cntr = cntr + 1;
+      if cntr > 100 % arbitrary number -- not sure if it is tuned well
+          data.bracket_exitflag = 4040;
+          return;
+      end
+      %%%%
       % NaN or Inf encountered, switch to safe mode
       here_be_dragons=true;
       alphaMax=alpha;
