@@ -12,11 +12,12 @@ function TreeMCMCparalleltemp(y,X,varargin)
     addParameter(ip,'gamma',.95)
     addParameter(ip,'beta',1)
     addParameter(ip,'p',.75)
+    addParameter(ip,'parallelprofile',0);
     addParameter(ip,'hottemp',.1)
     addParameter(ip,'saveall',0);
     addParameter(ip,'swapfreq',1);
     addParameter(ip,'seed','shuffle');
-    addParameter(ip,'suppress_errors_on_workers',1);
+    addParameter(ip,'suppress_errors_on_workers',0);
     addParameter(ip,'filepath','./')
     
     % Turn of specific warning from GPStuff
@@ -31,6 +32,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
     gamma = ip.Results.gamma;
     beta = ip.Results.beta;
     p = ip.Results.p;
+    parallelprofile = ip.Results.parallelprofile;
     hottemp = ip.Results.hottemp;
     saveall = ip.Results.saveall;
     seed = ip.Results.seed;
@@ -82,8 +84,9 @@ function TreeMCMCparalleltemp(y,X,varargin)
         disp(etext)
     end
     if suppress_errors_on_workers
-        disp('NOTE: Errors suppressed on workers.')
+        disp('NOTE: Errors suppressed on workers.');
     end
+    
 
     
     % Probability of proposing steps
@@ -136,9 +139,18 @@ function TreeMCMCparalleltemp(y,X,varargin)
     end
        
     spmd(spmdsize)
-        if suppress_errors_on_workers
-            warning('off','all')
+        if parallelprofile
+            mpiprofile on
         end
+        
+        
+        if suppress_errors_on_workers
+            oldwarnstate0 = warning('off','all');
+        end
+        % Suppress Matlab error for nearly singular matrix
+        oldwarnstate = warning('off','MATLAB:nearlySingularMatrix');
+        
+        
         myname = labindex;
         master = 1; % master process labindex
         
@@ -348,7 +360,16 @@ function TreeMCMCparalleltemp(y,X,varargin)
             stp = toc(strt);
             savetime = stp - strt;
         end
-        warning('on','all')
+        % Turn on suppressed warnings
+        warning(oldwarnstate);
+        if suppress_errors_on_workers
+            warning(oldwarnstate0);
+            % warning('on','all')
+        end
+        if parallelprofile
+            mpiprofile off
+            mpiprofile viewer
+        end
                
         % Keep only the true chain
         % output = output{1};
