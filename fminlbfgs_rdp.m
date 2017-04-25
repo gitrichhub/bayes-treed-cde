@@ -449,7 +449,17 @@ while(true)
   % Calculate the error registration gradient
   if isequal(optim.GradConstr,'on')
     [data,f_alpha]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data, optim);
+    %%%% rdp
+    cntr = 0;
+    %%%%
     while isnan(f_alpha) || isinf(f_alpha)
+      %%%% rdp
+      cntr = cntr + 1;
+      if cntr > 100 % arbitrary number -- not sure if it is tuned well
+          data.bracket_exitflag = 4040;
+          return;
+      end
+      %%%%
       % Go to smaller stepsize
       alpha=alpha*optim.tau3;
       % Set hill variable
@@ -460,7 +470,17 @@ while(true)
     grad=nan;
   else
     [data,f_alpha, grad]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data,optim);
+    %%%% rdp
+    cntr = 0;
+    %%%%    
     while isnan(f_alpha) || isinf(f_alpha) || any(isnan(grad)) || any(isinf(grad))
+      %%%% rdp
+      cntr = cntr + 1;
+      if cntr > 100 % arbitrary number -- not sure if it is tuned well
+          data.bracket_exitflag = 4040;
+          return;
+      end
+      %%%%
       % Go to smaller stepsize
       alpha=alpha*optim.tau3;
       % Set hill variable
@@ -621,7 +641,17 @@ while(true)
   % Calculate value (and gradient if no extra time cost) of current alpha
   if ~isequal(optim.GradConstr,'on')
     [data,f_alpha, grad]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data, optim);
+    %%%% rdp
+    cntr = 0;
+    %%%%
     while isnan(f_alpha) || isinf(f_alpha) || any(isnan(grad)) || any(isinf(grad))
+      %%%% rdp
+      cntr = cntr + 1;
+      if cntr > 100 % arbitrary number -- not sure if it is tuned well
+          data.bracket_exitflag = 4040;
+          return;
+      end
+      %%%%
       % NaN or Inf encountered, switch to safe mode
       here_be_dragons=true;
       alpha = alphaPrev+0.25*(alpha-alphaPrev);
@@ -633,7 +663,17 @@ while(true)
     if(gstep>optim.DiffMaxChange), gstep=optim.DiffMaxChange; end
     if(gstep<optim.DiffMinChange), gstep=optim.DiffMinChange; end
     [data,f_alpha]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data,optim);
+    %%%% rdp
+    cntr = 0;
+    %%%%
     while isnan(f_alpha) || isinf(f_alpha)
+      %%%% rdp
+      cntr = cntr + 1;
+      if cntr > 100 % arbitrary number -- not sure if it is tuned well
+          data.bracket_exitflag = 4040;
+          return;
+      end
+      %%%%
       % NaN or Inf encountered, switch to safe mode
       here_be_dragons=true;
       alpha = alphaPrev+0.25*(alpha-alphaPrev);
