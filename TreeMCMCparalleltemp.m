@@ -367,8 +367,8 @@ function TreeMCMCparalleltemp(y,X,varargin)
             % warning('on','all')
         end
         if parallelprofile
-            mpiprofile off
             mpiprofile viewer
+            mpiprofile off
         end
                
         % Keep only the true chain
