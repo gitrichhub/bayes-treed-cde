@@ -322,8 +322,8 @@ classdef Tree
 
                             xindlength = length(node.Xind)
                             tabulate(X{node.Xind,node.Rule{1}})
-
-                            error('Old rule not a candidate for prior draw');
+                                    
+                            % error('Old rule not a candidate for prior draw');
                         end
                     end
                 end
@@ -583,6 +583,20 @@ classdef Tree
                         if llikepriorcalc
                             out = llike_termnodes(out,y);
                             [~,out] = prior_eval(out,X);
+                        end
+                        % Fix any classification rules which are
+                        % not up to date
+                        for mm = 1:length(out.Allnodes)
+                            mynode = out.Allnodes{mm};
+                            if ~isempty(mynode.Rule)
+                                myrule = mynode.Rule{2};
+                                if isa(myrule,'cell')
+                                    uq = unique(X{mynode.Xind,mynode.Rule{1}});
+                                    myrule = myrule(ismember(myrule,uq)); % New Rule L
+                                    mynode.Rule{2} = myrule;
+                                    out.Allnodes{mm} = mynode;
+                                end
+                            end
                         end
                         parentchildagree(out);
                         duplicateIDs(out);
@@ -1146,7 +1160,7 @@ classdef Tree
                 %delta = width - 1/(2*treedepth);
                 %delta = (1 + width*(2*treedepth - 1) - (maxloc+1)/2)/treedepth;
                 xval = parentxloc + plusminus*delta;
-                plot([parentxloc, xval],[level,level-1],'b')          
+                plot([parentxloc, xval],[level,level-1],'k')          
             else
                 % Get the xval to pass to children
                 %maxloc = 2*treedepth*width;     
