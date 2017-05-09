@@ -166,7 +166,21 @@ function TreeMCMCparalleltemp(y,X,varargin)
         mytemp = temps(myname);
         T = Tree(y,X,leafmin,gamma,beta,mytemp);
         for ii=1:(burn + nmcmc)
-            [Tstar,~,r,lr] = proposeTree(T,y,X,allprobs,p,mytemp,0);
+            % Propose a tree (with error handling)
+            goodtree = 0;
+            errcntr = 0;
+            while ~goodtree
+                try 
+                    [Tstar,~,r,lr] = proposeTree(T,y,X,allprobs,p,mytemp,0);
+                    goodtree = 1;
+                catch % If error, try again
+                end
+                errcntr = errcntr + 1;
+                if errcntr > 100
+                    error('Possibly an infinite loop encountered.')
+                end
+            end
+            
             if lr > log(rand)
                 T = Tstar;
                 naccept = naccept + 1;
