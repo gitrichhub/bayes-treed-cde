@@ -1142,11 +1142,16 @@ classdef Tree
         
         
         % Graphs
-        function treelines(obj,nodename,level,treedepth,parentxloc,LR)
+        function treelines(obj,nodename,level,treedepth,parentxloc,LR,plotdens,y)
             width = 1; % space between terminal nodes
-            maxloc = 1 + width*(2*treedepth - 1);
+            % maxloc = 1 + width*(2*treedepth - 1);
             nind = nodeind(obj,nodename);
             node = obj.Allnodes{nind};
+            if ~isempty(plotdens)
+                adddens = 1;
+            else
+                adddens = 0;
+            end
             if ~isempty(node.Parent)
             %if nodename > 0
                 if LR == 'L'
@@ -1156,16 +1161,21 @@ classdef Tree
                 else
                     error('Must correctly specify "LR" as "L" or "R"')
                 end
-                delta = width*2^(treedepth + level - 1);
+                %delta = width*2^-(treedepth + level - 1);
+                delta = width*2^(treedepth + level - 1); % Old delta
+                % which works...
                 %delta = width - 1/(2*treedepth);
                 %delta = (1 + width*(2*treedepth - 1) - (maxloc+1)/2)/treedepth;
                 xval = parentxloc + plusminus*delta;
-                plot([parentxloc, xval],[level,level-1],'k')          
+                if ~adddens
+                    plot([parentxloc, xval],[level + 1,level],'k')
+                end
             else
                 % Get the xval to pass to children
                 %maxloc = 2*treedepth*width;     
-                xval = (maxloc + 1)/2;
+                % xval = (maxloc + 1)/2;
                 %parentxloc = xval; % just for the root node...
+                xval = 0;
             end
             
             % Plot the rule of the parent
@@ -1186,17 +1196,56 @@ classdef Tree
                     ruletext = strcat(colname,' \in \{',grp,'\}');
                     %ruletext = strcat(colname,' \in \{',cell2mat(node.Rule.Varrule),'\}');
                 end
-                text(xval,level-1,ruletext,'HorizontalAlignment','right')
+                if ~adddens
+                    text(xval,level,ruletext,'HorizontalAlignment','right')
+                end
             end
             
             %n = length(obj.Allnodes);
             if ~isempty(node.Lchild) && ~isempty(node.Rchild)
-                treelines(obj,node.Lchild,level-1,treedepth,xval,'L')
-                treelines(obj,node.Rchild,level-1,treedepth,xval,'R')
+                treelines(obj,node.Lchild,level-1,treedepth,xval,'L',plotdens,y)
+                treelines(obj,node.Rchild,level-1,treedepth,xval,'R',plotdens,y)
+            elseif isempty(node.Lchild) && isempty(node.Rchild) && ~isempty(plotdens)
+                %hold off
+                % Now plot the density at the terinal nodes
+                % delta2 = width*2^(treedepth + level);
+                %delta = width - 1/(2*treedepth);
+                %delta = (1 + width*(2*treedepth - 1) - (maxloc+1)/2)/treedepth;
+                %axisparms = gca;
+                %xrange = axisparms.XLim(2) - axisparms.XLim(1);
+                %yrange = axisparms.YLim(2) - axisparms.YLim(1);
+                xrange = plotdens(1,2) - plotdens(1,1);
+                yrange = plotdens(2,2) - plotdens(2,1);
+                xorigin = plotdens(1,1);
+                yorigin = plotdens(2,1);
+                xvald = (xval - xorigin)/xrange;
+                yvald = (level - yorigin)/yrange;
+                % Normalize again
+                lw = 2^(-treedepth)*plotdens(4,1);
+                xvald = xvald*plotdens(4,1) + plotdens(3,1) - lw/2;
+                yvald = yvald*plotdens(4,2) + plotdens(3,2) - lw;
+                % [xvald,yvald]
+                axes('Position',[xvald,yvald,lw,lw])
+                box on
+                if isempty(y)
+                    error('No data to plot densities.')
+                else
+                    %size(node.Xind)
+                    %[node.Id, nind]
+                    try 
+                        lgpdens(y(node.Xind))
+                    catch
+                        lgpdens(y(node.Xind),'imp_sampling','off')
+                    end
+                    
+                end
+                %hold on
+            else
+                % error('Unexpected case encountered.')
             end
         end
         
-        function Treeplot(obj)
+        function Treeplot(obj,y)
             n = length(obj.Allnodes);
             if n <= 1
                 error('Tree must be more than a root node.')
@@ -1205,7 +1254,8 @@ classdef Tree
                 for ii = 1:n
                     parent = obj.Allnodes{ii}.Parent;
                     if ~isempty(parent)
-                        nodegraph(ii) = parent + 1;
+                        % nodegraph(ii) = parent + 1;
+                        nodegraph(ii) = obj.Allnodes{ii}.Depth;
                     else
                         rootnodename = obj.Allnodes{ii}.Id;
                     end
@@ -1216,9 +1266,14 @@ classdef Tree
                 %maxloc = 2*treedepth;
                 figure;
                 hold on;
-                treelines(obj,rootnodename,0,treedepth,'','')
-                hold off;
+                treelines(obj,rootnodename,0,treedepth,'','',[],[])
+                %hold off;
+                axisparms = gca;
+                plotdens = [axisparms.XLim; axisparms.YLim;
+                    axisparms.Position(1:2); axisparms.Position(3:4)];
                 axis off;
+                treelines(obj,rootnodename,0,treedepth,'','',plotdens,y)
+                hold off;
             end
         end
         
@@ -1266,6 +1321,7 @@ classdef Tree
                     ', Rulevar=',rulevar,...
                     ', Rule=',therule,...
                     ', Terminalnode=',tnode]);
+                fprintf('\n')
             end     
         end
         
