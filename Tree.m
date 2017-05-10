@@ -1142,7 +1142,7 @@ classdef Tree
         
         
         % Graphs
-        function treelines(obj,nodename,level,treedepth,parentxloc,LR,plotdens,y)
+        function treelines(obj,nodename,level,treedepth,parentxloc,LR,plotdens,y,xlims,ylims)
             width = 1; % space between terminal nodes
             % maxloc = 1 + width*(2*treedepth - 1);
             nind = nodeind(obj,nodename);
@@ -1203,8 +1203,8 @@ classdef Tree
             
             %n = length(obj.Allnodes);
             if ~isempty(node.Lchild) && ~isempty(node.Rchild)
-                treelines(obj,node.Lchild,level-1,treedepth,xval,'L',plotdens,y)
-                treelines(obj,node.Rchild,level-1,treedepth,xval,'R',plotdens,y)
+                treelines(obj,node.Lchild,level-1,treedepth,xval,'L',plotdens,y,xlims,ylims)
+                treelines(obj,node.Rchild,level-1,treedepth,xval,'R',plotdens,y,xlims,ylims)
             elseif isempty(node.Lchild) && isempty(node.Rchild) && ~isempty(plotdens)
                 %hold off
                 % Now plot the density at the terinal nodes
@@ -1221,11 +1221,12 @@ classdef Tree
                 xvald = (xval - xorigin)/xrange;
                 yvald = (level - yorigin)/yrange;
                 % Normalize again
-                lw = 2^(-treedepth)*plotdens(4,1);
-                xvald = xvald*plotdens(4,1) + plotdens(3,1) - lw/2;
-                yvald = yvald*plotdens(4,2) + plotdens(3,2) - lw;
+                thewidth = 2^(-treedepth)*plotdens(4,1);
+                theheight = 1/(treedepth + 1)*plotdens(4,2);
+                xvald = xvald*plotdens(4,1) + plotdens(3,1) - thewidth/2;
+                yvald = yvald*plotdens(4,2) + plotdens(3,2) - theheight;
                 % [xvald,yvald]
-                axes('Position',[xvald,yvald,lw,lw])
+                axes('OuterPosition',[xvald,yvald,thewidth,theheight])
                 box on
                 if isempty(y)
                     error('No data to plot densities.')
@@ -1233,19 +1234,59 @@ classdef Tree
                     %size(node.Xind)
                     %[node.Id, nind]
                     try 
-                        lgpdens(y(node.Xind))
+                        ysub = y(node.Xind);
+                        thetab = tabulate(ysub);
+                        if any(thetab(:,3) > 20)
+                            lgpdens(ysub,sort(unique(ysub)),'range',...
+                                [min(ysub),max(ysub)]);
+                        else
+                            lgpdens(ysub)
+                        end
                     catch
-                        lgpdens(y(node.Xind),'imp_sampling','off')
+                        try
+                            lgpdens(y(node.Xind),'imp_sampling','off')
+                        catch
+                            lgpdens(y(node.Xind),'speedup','on')
+                            % lgpdens(y(node.Xind),'gridn',200)
+                            % lgpdens(y(node.Xind),'latent_method','MCMC')
+                        end
                     end
-                    
+                    if ~isempty(xlims)
+                        xlim(xlims)
+                    end
+                    if ~isempty(ylims)
+                        ylim(ylims)
+                    end
                 end
                 %hold on
-            else
-                % error('Unexpected case encountered.')
             end
         end
         
-        function Treeplot(obj,y)
+        % Tree as first argument.
+        % data as second argument (if densities are desired)
+        % xlim as third
+        % ylim as fourth
+        function Treeplot(varargin)
+            xlims = [];
+            ylims = [];
+            if nargin >= 1
+                pdensities = 0;
+                obj = varargin{1};
+            end
+            if nargin >= 2
+                pdensities = 1;
+                y = varargin{2};
+            end
+            if nargin >= 3
+                xlims = varargin{3};
+            end
+            if nargin >= 4
+                ylims = varargin{4};
+            end
+            
+            if nargin >= 5
+                error('Maximum of 4 arguments')
+            end
             n = length(obj.Allnodes);
             if n <= 1
                 error('Tree must be more than a root node.')
@@ -1266,13 +1307,16 @@ classdef Tree
                 %maxloc = 2*treedepth;
                 figure;
                 hold on;
-                treelines(obj,rootnodename,0,treedepth,'','',[],[])
+                treelines(obj,rootnodename,0,treedepth,'','',[],[],[],[])
                 %hold off;
+                ylim([-treedepth-1,0]);
                 axisparms = gca;
                 plotdens = [axisparms.XLim; axisparms.YLim;
                     axisparms.Position(1:2); axisparms.Position(3:4)];
                 axis off;
-                treelines(obj,rootnodename,0,treedepth,'','',plotdens,y)
+                if pdensities
+                    treelines(obj,rootnodename,0,treedepth,'','',plotdens,y,xlims,ylims)
+                end
                 hold off;
             end
         end
