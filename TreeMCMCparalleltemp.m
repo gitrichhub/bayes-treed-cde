@@ -165,6 +165,9 @@ function TreeMCMCparalleltemp(y,X,varargin)
         % Initialize root tree on each process
         mytemp = temps(myname);
         T = Tree(y,X,leafmin,gamma,beta,mytemp);
+        if myname == master
+            disp('Starting MCMC...')
+        end
         for ii=1:(burn + nmcmc)
             % Propose a tree (with error handling)
             goodtree = 0;
@@ -173,7 +176,9 @@ function TreeMCMCparalleltemp(y,X,varargin)
                 try 
                     [Tstar,~,r,lr] = proposeTree(T,y,X,allprobs,p,mytemp,0);
                     goodtree = 1;
-                catch % If error, try again
+                catch ME % If error, try again
+                    msg = getReport(ME);
+                    warning(msg);
                 end
                 errcntr = errcntr + 1;
                 if errcntr > 100
@@ -331,7 +336,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
             
             
             %if myname == master % Print progress
-                if mod(ii,10) == 0
+                if mod(ii,100) == 0
                     disp(['i = ',num2str(ii),', ID = ',num2str(myname),', llike = ',num2str(T.Lliketree),...
                         ', accept = ',num2str(naccept/ii),...
                         ', swapaccept = ',num2str(swapaccepttotal),'/',num2str(swaptotal),...
@@ -343,13 +348,16 @@ function TreeMCMCparalleltemp(y,X,varargin)
                 end
             %end
             
+            
             % Record Values       
             if ii > burn
-                TREES{ii - burn} = T;
+                TREES{ii - burn} = thin_tree(T);
                 treesize(ii - burn) = T.Ntermnodes;
                 LLIKE(ii - burn) = T.Lliketree;
             end
+            
         end
+        
         
         perc_accept = naccept/(nmcmc + burn);
         move_accepts = [n_g_accept/n_g_total,...
@@ -357,7 +365,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
             n_c_accept/n_c_total,...
             n_s_accept/n_s_total];
         swap_accept = swapaccepttotal/swaptotal;
-
         if k > 0
             C = unique(sort(LLIKE,'descend'),'rows','stable');
             if length(C) < k
@@ -377,7 +384,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
             end
             TREES = Treesub;
         end
-        
         
         output = struct('Trees',{TREES},'llike',LLIKE,'acceptance',perc_accept,...
             'treesize',treesize,'move_accepts',move_accepts,...

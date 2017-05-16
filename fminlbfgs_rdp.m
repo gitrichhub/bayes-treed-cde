@@ -451,12 +451,16 @@ while(true)
     [data,f_alpha]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data, optim);
     %%%% rdp
     cntr = 0;
+    f_alpha_orig = f_alpha;
     %%%%
     while isnan(f_alpha) || isinf(f_alpha)
       %%%% rdp
       cntr = cntr + 1;
       if cntr > 100 % arbitrary number -- not sure if it is tuned well
           data.bracket_exitflag = 4040;
+          loopnum = 1
+          f_alpha = f_alpha
+          f_alpha_orig = f_alpha_orig
           return;
       end
       %%%%
@@ -472,12 +476,19 @@ while(true)
     [data,f_alpha, grad]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data,optim);
     %%%% rdp
     cntr = 0;
+    f_alpha_orig = f_alpha;
+    grad_orig = grad;
     %%%%    
     while isnan(f_alpha) || isinf(f_alpha) || any(isnan(grad)) || any(isinf(grad))
       %%%% rdp
       cntr = cntr + 1;
       if cntr > 100 % arbitrary number -- not sure if it is tuned well
           data.bracket_exitflag = 4040;
+          loopnum = 2
+          f_alpha = f_alpha
+          f_alpha_orig = f_alpha_orig
+          grad_orig = grad_orig
+          grad = grad
           return;
       end
       %%%%
@@ -643,12 +654,19 @@ while(true)
     [data,f_alpha, grad]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data, optim);
     %%%% rdp
     cntr = 0;
+    f_alpha_orig = f_alpha;
+    grad_orig = grad;
     %%%%
     while isnan(f_alpha) || isinf(f_alpha) || any(isnan(grad)) || any(isinf(grad))
       %%%% rdp
       cntr = cntr + 1;
       if cntr > 100 % arbitrary number -- not sure if it is tuned well
           data.bracket_exitflag = 4040;
+          loopnum = 3
+          f_alpha = f_alpha
+          f_alpha_orig = f_alpha_orig
+          grad_orig = grad_orig
+          grad = grad
           return;
       end
       %%%%
@@ -665,12 +683,16 @@ while(true)
     [data,f_alpha]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data,optim);
     %%%% rdp
     cntr = 0;
+    f_alpha_orig = f_alpha;
     %%%%
     while isnan(f_alpha) || isinf(f_alpha)
       %%%% rdp
       cntr = cntr + 1;
       if cntr > 100 % arbitrary number -- not sure if it is tuned well
           data.bracket_exitflag = 4040;
+          loopnum = 4
+          f_alpha = f_alpha
+          f_alpha_orig = f_alpha_orig
           return;
       end
       %%%%
@@ -784,12 +806,19 @@ while(true)
     [data,f_alpha, grad]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data, optim);
     %%%% rdp
     cntr = 0;
+    f_alpha_orig = f_alpha;
+    grad_orig = grad;
     %%%%
     while isnan(f_alpha) || isinf(f_alpha) || any(isnan(grad)) || any(isinf(grad))
       %%%% rdp
       cntr = cntr + 1;
       if cntr > 100 % arbitrary number -- not sure if it is tuned well
           data.bracket_exitflag = 4040;
+          loopnum = 5
+          f_alpha = f_alpha
+          f_alpha_orig = f_alpha_orig
+          grad_orig = grad_orig
+          grad = grad
           return;
       end
       %%%%
@@ -807,12 +836,16 @@ while(true)
     [data,f_alpha]=gradient_function(data.xInitial(:)+alpha*data.dir(:),funfcn, data, optim);
     %%%% rdp
     cntr = 0;
+    f_alpha_orig = f_alpha;
     %%%%
     while isnan(f_alpha) || isinf(f_alpha)
       %%%% rdp
       cntr = cntr + 1;
       if cntr > 100 % arbitrary number -- not sure if it is tuned well
           data.bracket_exitflag = 4040;
+          loopnum = 6
+          f_alpha = f_alpha
+          f_alpha_orig = f_alpha_orig
           return;
       end
       %%%%

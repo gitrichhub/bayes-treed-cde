@@ -974,6 +974,25 @@ classdef Tree
         function out = descendentdata(obj,nodeid,X)
             nind = nodeind(obj,nodeid);
             node2 = obj.Allnodes{nind};
+            % Fill in Xind on the parent node
+            % This is just in case the tree has been thinned
+            % and this is missing on the root node.
+            if isempty(node2.Parent) && isempty(node2.Xind)
+                node2.Xind = 1:size(X,1);
+                obj.Allnodes{nind} = node2;
+            end
+%             elseif isempty(node2.Xind) && ~isempty(node2.Lchild) && ~isempty(node2.Rchild)
+%                 % Find root node and call the function again
+%                 for ii=1:length(obj.Allnodes)
+%                     if isempty(obj.Allnodes{ii}.Parent)
+%                         rootID = obj.Allnodes{ii}.Id;
+%                         break
+%                     end
+%                 end   
+%                 etext = ['Xind on node is empty.  Try calling function on root node (id=',...
+%                     num2str(rootID),').'];
+%                 error(etext)
+%             end
             if ~isempty(node2.Lchild) && ~isempty(node2.Rchild)
                 [XindL,XindR,ndata] = childrendata(obj,nodeid,X);           
                 out = obj;
@@ -1070,13 +1089,20 @@ classdef Tree
             out = obj;
             node1 = out.Allnodes{nodeind};
             % Determine if the data has changed and mark it.
-            if length(node1.Xind) ~= length(Xind) % Different sizes
-                node1.Updatellike = 1;
-                node1.Updatesplits = 1;
-            elseif ~all(sort(Xind) == sort(node1.Xind))
-                node1.Updatellike = 1;
-                node1.Updatesplits = 1;
-            end
+            %if ~isempty(node1.Xind) && ~isempty(Xind)
+                if length(node1.Xind) ~= length(Xind) % Different sizes
+                    node1.Updatellike = 1;
+                    node1.Updatesplits = 1;
+                elseif ~all(sort(Xind) == sort(node1.Xind))
+                    node1.Updatellike = 1;
+                    node1.Updatesplits = 1;
+                end
+%             elseif isempty(node1.Xind) && ~isempty(Xind)
+%                 node1.Updatellike = 1;
+%                 node1.Updatesplits = 1;
+%             else
+%                 error('Unexpected case occurred.')
+%             end
             
             node1.Xind = Xind;
             out.Allnodes{nodeind} = node1;
@@ -1139,7 +1165,32 @@ classdef Tree
             out.Prior = lprior;
         end
             
+        % Clear split rules to save memory for posterior.
+        %  Also clear the Xind as well.
+        function out = thin_tree(obj)
+            out = obj;
+            for ii=1:length(out.Allnodes)
+               node = out.Allnodes{ii};
+               node.nSplits = [];
+               node.Splitvals = [];
+               node.Updatesplits = 1;
+               node.Xind = [];
+               out.Allnodes{ii} = node;
+            end
+        end
         
+        % Put the indices for the Xind back in the tree
+        function out = fatten_tree(obj,X)
+            out = obj;
+            for ii = 1:length(out.Allnodes)
+                if isempty(out.Allnodes{ii}.Parent)
+                    rootID = out.Allnodes{ii}.Id;
+                    break
+                end
+            end
+            out = descendentdata(out,rootID,X);
+        end
+                
         
         % Graphs
         function treelines(obj,nodename,level,treedepth,parentxloc,LR,plotdens,y,xlims,ylims)
@@ -1351,13 +1402,26 @@ classdef Tree
                     if isa(therule,'double')
                         therule = num2str(therule);
                     else
-                        therule = char(therule)';
+                        %therule = char(therule);
+                        therule = strjoin(therule,',');
                     end
                     rulevar = num2str(node.Rule{1});
                 else
                     rulevar = '';
                     therule = '';
                 end
+                nodeid = node.Id
+                size(nodeid)
+                nodeparent = node.Parent
+                size(nodeparent)
+                nodeLchild = node.Lchild
+                size(nodeLchild)
+                nodeRchild = node.Rchild
+                size(nodeRchild)
+                rulevar = rulevar
+                size(rulevar)
+                tnode = tnode
+                size(tnode)
                 disp(['Id=',num2str(node.Id),...
                     ', Parent=',num2str(node.Parent),...
                     ', Lchild=',num2str(node.Lchild),...
@@ -1478,7 +1542,5 @@ classdef Tree
                 end
             end
         end
-            
-        
     end             
 end
