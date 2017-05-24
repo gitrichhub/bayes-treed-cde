@@ -323,7 +323,7 @@ classdef Tree
                             xindlength = length(node.Xind)
                             tabulate(X{node.Xind,node.Rule{1}})
                                     
-                            % error('Old rule not a candidate for prior draw');
+                            error('Old rule not a candidate for prior draw');
                         end
                     end
                 end
@@ -375,20 +375,7 @@ classdef Tree
                                 treestar = llike_termnodes(treestar,y);
                                 out = treestar;
                                 [~,out] = prior_eval(out,X);
-                                % Fix any classification rules which are
-                                % not up to date
-                                for mm = 1:length(out.Allnodes)
-                                    mynode = out.Allnodes{mm};
-                                    if ~isempty(mynode.Rule)
-                                        myrule = mynode.Rule{2};
-                                        if isa(myrule,'cell')
-                                            uq = unique(X{mynode.Xind,mynode.Rule{1}});
-                                            myrule = myrule(ismember(myrule,uq)); % New Rule L
-                                            mynode.Rule{2} = myrule;
-                                            out.Allnodes{mm} = mynode;
-                                        end
-                                    end
-                                end
+                                out = cleanrules(out,X);
                                 parentchildagree(out);
                                 duplicateIDs(out);
                                 return;
@@ -415,6 +402,7 @@ classdef Tree
                     end
                     out = llike_termnodes(out,y);
                     [~,out] = prior_eval(out,X);
+                    out = cleanrules(out,X);
                     n2 = getchangerules(out,changeind,X);
                     nchange2 = sum(n2);
                     return; % Never need to go through the loop
@@ -424,6 +412,24 @@ classdef Tree
             error('No split value found. This should not happen since the original rule is valid.')
         end
         
+        
+        function out = cleanrules(obj,X)
+            % Fix any classification rules which are
+            % not up to date
+            out = obj;
+            for mm = 1:length(out.Allnodes)
+                mynode = out.Allnodes{mm};
+                if ~isempty(mynode.Rule)
+                    myrule = mynode.Rule{2};
+                    if isa(myrule,'cell')
+                        uq = unique(X{mynode.Xind,mynode.Rule{1}});
+                        myrule = myrule(ismember(myrule,uq)); % New Rule L
+                        mynode.Rule{2} = myrule;
+                        out.Allnodes{mm} = mynode;
+                    end
+                end
+            end
+        end
         
         function [n,trees] = getchangerules(obj,nodeind,X)
             trees = cell(2,1);
@@ -584,20 +590,7 @@ classdef Tree
                             out = llike_termnodes(out,y);
                             [~,out] = prior_eval(out,X);
                         end
-                        % Fix any classification rules which are
-                        % not up to date
-                        for mm = 1:length(out.Allnodes)
-                            mynode = out.Allnodes{mm};
-                            if ~isempty(mynode.Rule)
-                                myrule = mynode.Rule{2};
-                                if isa(myrule,'cell')
-                                    uq = unique(X{mynode.Xind,mynode.Rule{1}});
-                                    myrule = myrule(ismember(myrule,uq)); % New Rule L
-                                    mynode.Rule{2} = myrule;
-                                    out.Allnodes{mm} = mynode;
-                                end
-                            end
-                        end
+                        out = cleanrules(out,X);
                         parentchildagree(out);
                         duplicateIDs(out);
                         swappossible = 1;
@@ -685,6 +678,7 @@ classdef Tree
                     if llikepriorcalc
                         [~,out] = prior_eval(out,X);
                     end
+                    out = cleanrules(out,X);
                     return;
                 end
             end  
