@@ -15,6 +15,44 @@
 %
 %     Copyright 2016-2017, Richard Payne
 
+% This function performs MCMC using parallel tempering to search the
+%   posterior of trees for conditional density estimation. This 
+%   function writes the results to a file which can then be loaded into the
+%   workspace.
+%
+% Required inputs:
+% y: response variable, vector of a continuous response.
+% X: table of covariates
+%
+% Optional Arguments:
+% nmcmc: number of MCMC iterations, default 10,000
+% burn: number of burn in iterations, default 1,000
+% leafmin: the minimum number of observations required at a terminal node.
+%          Default is 25.
+% gamma: prior hyperparameter governing size/shape of tree.  See Chipman's
+%        CART paper for details. Default is .95.
+% beta: prior hyperparameter governing size/shape of tree.  See Chipman's
+%        CART paper for details. Default is 1.
+% k: The number of posterior trees to be returned.  If 0, all trees from
+%    the MCMC algorithm are returned.  Otherwise, the k trees with the
+%    highest marginal likelihoods are returned to save on memory. Default
+%    is 0.
+% p: the probability of performing an incremental change step on a
+%    continuous variable rather than drawing from the prior. Default is
+%    .75.
+% parallelprofile: If 1, parallel profiling is performed to determine code
+%                  efficiency.  Default is 0.
+% hottemp: the smallest inverse temperature to be used.  Default is .1
+% saveall: If 1, the results of all tempered chains are saved as output.
+%          Default is 0.
+% swapfreq: The tempered MCMC chains are swapped every 'swapfeq' iterations.
+%           Default is 1. 
+% seed: specify a seed for the MCMC run.  This creates independent random seeds
+%       across each of the tempered chains.  Default is a random seed,
+%       'shuffle'.
+% suppress_errors_on_workers: If 1, suppresses warnings on workers. Default
+%                             is 0. 
+% filepath: where to place MCMC output. Default is './output/'
 
 function TreeMCMCparalleltemp(y,X,varargin)
     % Parse function
@@ -37,11 +75,9 @@ function TreeMCMCparalleltemp(y,X,varargin)
     addParameter(ip,'swapfreq',1);
     addParameter(ip,'seed','shuffle');
     addParameter(ip,'suppress_errors_on_workers',0);
-    addParameter(ip,'filepath','./')
+    addParameter(ip,'filepath','./output/')
     
-    % Turn of specific warning from GPStuff
-    %warning('off',)
-    
+   
     parse(ip,y,X,varargin{:});
     y = ip.Results.y;
     X = ip.Results.X;
@@ -89,14 +125,12 @@ function TreeMCMCparalleltemp(y,X,varargin)
     if mod(swapfreq,1) ~= 0 || swapfreq < 1
         error('swapfreq must be an integer >= 1.')
     end
-    if strcmp(filepath,'./') && ~isdir('./output')
-        mkdir('output')
-        disp('NOTE: Creating output directory "./output"')
-        filepath = './output/';
-    elseif strcmp(filepath,'./') && isdir('./output')
-        disp(strcat(['NOTE: May overwrite files in ','./output']));
-        filepath = './output/';
-    elseif ~isdir(filepath)
+    % Add slash if necessary
+    if ~strcmp(filepath(end),'/')
+        filepath = strcat(filepath,'/');
+    end
+    % Create output directory or warn about overwriting
+    if ~isdir(filepath)
         mkdir(filepath)
         disp(strcat(['NOTE: Creating output directory ',filepath]))
     else
@@ -106,8 +140,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
     if suppress_errors_on_workers
         disp('NOTE: Errors suppressed on workers.');
     end
-    
-
     
     % Probability of proposing steps
     p_g_orig = .25; % grow
@@ -162,24 +194,17 @@ function TreeMCMCparalleltemp(y,X,varargin)
         if parallelprofile
             mpiprofile on
         end
-        
-        
         if suppress_errors_on_workers
             oldwarnstate0 = warning('off','all');
         end
         % Suppress Matlab error for nearly singular matrix
         oldwarnstate = warning('off','MATLAB:nearlySingularMatrix');
-        
-        
         myname = labindex;
         master = 1; % master process labindex
-        
-       
         % Create independent Random Streams with a seed on each lab
         s = RandStream.create('mrg32k3a','Numstreams',m,...
             'StreamIndices',myname,'Seed',seed);
         RandStream.setGlobalStream(s);
-
         % Initialize root tree on each process
         mytemp = temps(myname);
         T = Tree(y,X,leafmin,gamma,beta,mytemp);
@@ -203,7 +228,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
                     error('Possibly an infinite loop encountered.')
                 end
             end
-            
             if lr > log(rand)
                 T = Tstar;
                 naccept = naccept + 1;
@@ -233,8 +257,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
                     n_s_total = n_s_total + 1;
                 end
             end
-            
-            %disp('here0!')
             if mod(ii,swapfreq) == 0
                 % Propose a switch of chains and send to all workers
                 if myname == master
@@ -245,9 +267,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
                 else
                     swapind = labBroadcast(master); 
                 end
-                %disp('here!')
-
-                %if any(myname == swapind)
                 % Send proposed swap to master
                 if myname == swapind(1) && myname ~= master
                     labSend(T,master,1);
@@ -261,7 +280,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
                         swaptotal = swaptotal + 1;
                     end
                 end
-                %disp('here1')
                 if myname == swapind(2) && myname ~= master
                     labSend(T,master,2);
                     swaptotal = swaptotal + 1;
@@ -274,34 +292,12 @@ function TreeMCMCparalleltemp(y,X,varargin)
                         swaptotal = swaptotal + 1;
                     end
                 end
-
-    %             if myname == swapind(2)
-    %                 labSend(T,master,2)
-    %                 swaptotal = swaptotal + 1;
-    %             elseif myname == master
-    %                 Tstarswap2 = labReceive(swapind(2),2);
-    %             end
-
-                %disp('here2')
-
                 if myname == master
                     swaptotal_global = swaptotal_global + 1;
                     lrswap = (Tstarswap2.Temp * Tstarswap1.Lliketree + Tstarswap1.Prior) + ...
                         (Tstarswap1.Temp * Tstarswap2.Lliketree + Tstarswap2.Prior) - ...
                         (Tstarswap1.Temp * Tstarswap1.Lliketree + Tstarswap1.Prior) - ...
                         (Tstarswap2.Temp * Tstarswap2.Lliketree + Tstarswap2.Prior);
-%                     if llike1 < llike2 && lrswap < 0
-%                         temp1 = Tstarswap1.Temp
-%                         temp2 = Tstarswap2.Temp
-%                         llike1 = Tstarswap1.Lliketree
-%                         llike2 = Tstarswap2.Lliketree
-%                         lrswap = lrswap
-%                     end
-                    %end
-                    
-                    
-                    
-                    %[temp1,llike1,temp2,llike2,lrswap]
                     if ~isfinite(lrswap)
                         error('Non-finite swap likelihood ratio.')
                     end
@@ -310,24 +306,11 @@ function TreeMCMCparalleltemp(y,X,varargin)
                     else
                         swapaccept = 0;
                     end
-                    
-%                     if isnan(lrswap)
-%                         temp1 = Tstarswap1.Temp
-%                         temp2 = Tstarswap2.Temp
-%                         llike1 = Tstarswap1.Lliketree
-%                         llike2 = Tstarswap2.Lliketree
-%                         prior1 = Tstarswap1.Prior
-%                         prior2 = Tstarswap2.Prior
-%                     end
-                        
-                    
                     swapaccepttotal_global = swapaccepttotal_global + swapaccept;
                     swapaccept = labBroadcast(master,swapaccept);
                 else
                     swapaccept = labBroadcast(master);
                 end
-
-                %disp('here3')
                 if swapaccept
                     if myname == master
                         if myname ~= swapind(1)
@@ -351,8 +334,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
                     end
                 end
             end
-            
-            
+
             %if myname == master % Print progress
                 if mod(ii,100) == 0
                     disp(['i = ',num2str(ii),', ID = ',num2str(myname),', llike = ',num2str(T.Lliketree),...
@@ -365,8 +347,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
                     end
                 end
             %end
-            
-            
+
             % Record Values       
             if ii > burn
                 TREES{ii - burn} = thin_tree(T);
@@ -375,8 +356,6 @@ function TreeMCMCparalleltemp(y,X,varargin)
             end
             
         end
-        
-        
         perc_accept = naccept/(nmcmc + burn);
         move_accepts = [n_g_accept/n_g_total,...
             n_p_accept/n_p_total,...
@@ -402,11 +381,9 @@ function TreeMCMCparalleltemp(y,X,varargin)
             end
             TREES = Treesub;
         end
-        
         output = struct('Trees',{TREES},'llike',LLIKE,'acceptance',perc_accept,...
             'treesize',treesize,'move_accepts',move_accepts,...
             'swap_accept',swap_accept);
-        
         % Save output
         if saveall
             savenames = 1:m;
@@ -431,13 +408,7 @@ function TreeMCMCparalleltemp(y,X,varargin)
             mpiprofile viewer
             mpiprofile off
         end
-               
-        % Keep only the true chain
-        % output = output{1};
     end
-    %swap_percent_global = swapaccepttotal_global{1}/swaptotal_global{1};
-    %output{'swap_accept_global'} = swapaccepttotal_global{1}/swaptotal_global{1};
-    %output = output0{1};
 end
 
 function savedata(fname,output,swp_perc)
