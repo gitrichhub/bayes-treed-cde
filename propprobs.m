@@ -15,10 +15,14 @@
 %
 %     Copyright 2016-2017, Richard Payne
 
+% Gets the proposal probabilities based on current tree and the initial
+%   proposal probabilities specified by the user. 
 % T: an object of class T
 % probs: a vector of the original proposal probabilities of the steps
 % nbirths: number of births the Tree has available
 % swappossible: [] or 1 indicating no/yes to a swap step on tree T
+% p_g, p_p, p_c, p_s, modified proposal probabilities for the tree for the
+%   grow, prune, change, and swap modifications.
 function [p_g,p_p,p_c,p_s] = propprobs(T,probs,nbirths,swappossible)
     if length(T.Allnodes) >= 5
         if nbirths > 0 % birth step possible
