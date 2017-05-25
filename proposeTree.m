@@ -15,16 +15,28 @@
 %
 %     Copyright 2016-2017, Richard Payne
 
+% Proposes Tree for the reversible jump MCMC algorithm with parallel
+%   tempering.  Specifically, this is used in TreeMCMCParalleltemp() and also
+%   may be extended to be used in the multiset procedure.
+%
+% T: Current tree in MCMC chain
+% y: response variable
+% X: covariate matrix
+% allprobs: probability of a grow, prune, change, and swap step (vector of
+%           length 4)
+% p: probability of moving to the next largest or smallest value for
+%    continuous rules in a change step rather than draw a rule from a prior.
+% temp: inverse temperature of the tree
+% mset: 1 if proposing tree for a multiset, 0 otherwise.
+% Tstar: proposed tree
+% prop_ratio: the logged proposal ratio of the MH algorithm
+% r: integer (1:4) indicating whether a grow, prune, change, or swap step
+%    was seleted, respectively.
+% lr: the log of the MH ratio
 function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
-    % T: current tre
-    % y: dependent variable
-    % X: Data
     Tprior = T.Prior;
-    
     % Initial values
     lr = [];
-    %n_totals = ntotals;
-
     % See what moves are possible
     if length(T.Allnodes) >= 5
         [~,swappossible] = swap(T,y,X,[],0);
@@ -34,10 +46,8 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
     [nbirths,T] = nbirthnodes(T,X);
     [p_g,p_p,p_c,p_s] = propprobs(T,allprobs,nbirths,swappossible);
     r = randsample([1, 2, 3, 4],1,true,[p_g,p_p,p_c,p_s]);
-
     if r == 1 % grow
         [Tstar,birthindex] = birth(T,y,X);
-        % kstar = length(termnodes(T)); % number of birthable nodes
         kstar = nbirthnodes(T,X); % Number of nodes that can grow
         k_d = length(terminalparents(Tstar)); % number of possible deaths in proposed model
         birthvarind = Tstar.Allnodes{birthindex}.Rule{1};
@@ -45,7 +55,6 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
         N_v = sum(Tstar.Allnodes{birthindex}.nSplits > 0);
         % Number of possible splits for this variable
         N_b = Tstar.Allnodes{birthindex}.nSplits(birthvarind);
-
         % Reversibility
         if length(Tstar.Allnodes) >= 5
             [~,swappossible] = swap(Tstar,y,X,[],0);
@@ -54,20 +63,15 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
         end
         [nbirths,Tstar] = nbirthnodes(Tstar,X);
         [~,p_p_star,~,~] = propprobs(Tstar,allprobs,nbirths,swappossible);
-
         prop_ratio = log(p_p_star/k_d) - log(p_g/(kstar*N_v*N_b));
         [Tstarprior,Tstar] = prior_eval(Tstar,X);
-        
         if ~mset
             lr = temp*(Tstar.Lliketree - T.Lliketree) + ...
                 (Tstarprior - Tprior) + ...
                 prop_ratio;
         end
-        %n_g_total = n_g_total + 1;
-        % n_totals(1) = ntotals(1) + 1;
     elseif r == 2 % prune
         [Tstar,pind] = prune(T,y,X);
-        %kstar = length(termnodes(Tstar));
         k_d = length(terminalparents(T));
         prunevarind = T.Allnodes{pind}.Rule{1};
         N_b = T.Allnodes{pind}.nSplits(prunevarind);
@@ -81,7 +85,6 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
         [nbirths,Tstar] = nbirthnodes(Tstar,X);
         kstar = nbirths;
         [p_g_star,~,~,~] = propprobs(Tstar,allprobs,nbirths,swappossible);
-
         prop_ratio = log(p_g_star/(kstar*N_v*N_b)) - log(p_p/k_d);
         [Tstarprior,Tstar] = prior_eval(Tstar,X);
         if ~mset
@@ -89,15 +92,9 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
                 (Tstarprior - Tprior) + ...
                 prop_ratio;
         end
-        %n_p_total = n_p_total + 1;
-        % n_totals(2) = ntotals(2) + 1;
     elseif r == 3; % change
         [Tstar,priordraw,startcont,endcont,nchange,nchange2] = change(T,y,X,p);
-        % Tstar = change(T,y,X);
         [Tstarprior,Tstar] = prior_eval(Tstar,X);
-        %[nT,T] = nchangenodes(T,X);
-        %[nTstar,Tstar] = nchangenodes(Tstar,X);
-
         % Reversibility
         if priordraw
             if startcont
@@ -130,15 +127,11 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
                 error('This should never happen.')
             end
         end
-
-        % prop_ratio = log(nT/nTstar);
         if ~mset
             lr = temp*(Tstar.Lliketree - T.Lliketree) + ...
                 (Tstarprior - Tprior) + ...
                 prop_ratio;
         end
-        %n_c_total = n_c_total + 1;
-        %n_totals(3) = ntotals(3) + 1;
     elseif r == 4; % swap
         Tstar = swap(T,y,X,[],1);
         [Tstarprior,Tstar] = prior_eval(Tstar,X);
@@ -149,10 +142,7 @@ function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
             lr = temp*(Tstar.Lliketree - T.Lliketree) + ...
                 Tstarprior - Tprior + prop_ratio;
         end
-        %n_s_total = n_s_total + 1;
-        %n_totals(4) = ntotals(4) + 1;
     end
-    
     if isnan(lr)
         error('Likelihood ratio is not a number')
     elseif isinf(lr) && lr > 0
