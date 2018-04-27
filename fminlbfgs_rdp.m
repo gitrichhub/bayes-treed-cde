@@ -148,7 +148,8 @@ function [x,fval,exitflag,output,grad]=fminlbfgs_rdp(funfcn,x_init,optim)
 %ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %POSSIBILITY OF SUCH DAMAGE.
 % 
-%     This file is part of bayes-treed-cde.
+%     This file is part of bayes-treed-cde and is being redistributed with
+%     some modifications from the GPstuff toolbox.
 % 
 %     bayes-treed-cde is free software: you can redistribute it and/or modify
 %     it under the terms of the GNU General Public License as published by
@@ -164,6 +165,9 @@ function [x,fval,exitflag,output,grad]=fminlbfgs_rdp(funfcn,x_init,optim)
 %     along with bayes-treed-cde.  If not, see <http://www.gnu.org/licenses/>.
 %
 %     Copyright 2016-2017, Richard Payne
+%
+%     Some changes have been made, generally marked with 'rdp' for dealing
+%     with some small bugs.
 
 
 % Read Optimization Parameters

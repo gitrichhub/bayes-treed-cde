@@ -14,6 +14,8 @@
 %     along with bayes-treed-cde.  If not, see <http://www.gnu.org/licenses/>.
 %
 %     Copyright 2016-2017, Richard Payne
+%
+%     This file defines the Nodes class.  See below for more documentation.
 
 classdef Nodes
     properties

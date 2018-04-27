@@ -14,25 +14,28 @@
 %     along with bayes-treed-cde.  If not, see <http://www.gnu.org/licenses/>.
 %
 %     Copyright 2016-2017, Richard Payne
-
-% Proposes Tree for the reversible jump MCMC algorithm with parallel
-%   tempering.  Specifically, this is used in TreeMCMCParalleltemp() and also
-%   may be extended to be used in the multiset procedure.
 %
-% T: Current tree in MCMC chain
-% y: response variable
-% X: covariate matrix
-% allprobs: probability of a grow, prune, change, and swap step (vector of
+%     Proposes Tree for the reversible jump MCMC algorithm with parallel
+%       tempering.  Specifically, this is used in TreeMCMCParalleltemp() and also
+%       may be extended to be used in the multiset procedure.
+%
+%     INPUT
+%     T: Current tree in MCMC chain
+%     y: response variable
+%     X: covariate matrix
+%     allprobs: probability of a grow, prune, change, and swap step (vector of
 %           length 4)
-% p: probability of moving to the next largest or smallest value for
-%    continuous rules in a change step rather than draw a rule from a prior.
-% temp: inverse temperature of the tree
-% mset: 1 if proposing tree for a multiset, 0 otherwise.
-% Tstar: proposed tree
-% prop_ratio: the logged proposal ratio of the MH algorithm
-% r: integer (1:4) indicating whether a grow, prune, change, or swap step
-%    was seleted, respectively.
-% lr: the log of the MH ratio
+%     p: probability of moving to the next largest or smallest value for
+%        continuous rules in a change step rather than draw a rule from a prior.
+%     temp: inverse temperature of the tree
+%     mset: 1 if proposing tree for a multiset, 0 otherwise.
+%
+%     OUTPUT
+%     Tstar: proposed tree
+%     prop_ratio: the logged proposal ratio of the MH algorithm
+%     r: integer (1:4) indicating whether a grow, prune, change, or swap step
+%        was seleted, respectively.
+%     lr: the log of the MH ratio
 function [Tstar,prop_ratio,r,lr] = proposeTree(T,y,X,allprobs,p,temp,mset)
     Tprior = T.Prior;
     % Initial values

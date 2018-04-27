@@ -36,7 +36,8 @@ function [gp, varargout] = gp_optim_rdp(gp, x, y, varargin)
 % License (version 3 or later); please refer to the file
 % License.txt, included with the software, for details.
 %
-%     This file is part of bayes-treed-cde.
+%     This file is part of bayes-treed-cde and is being redistributed with
+%     some modifications from the GPstuff package.
 % 
 %     bayes-treed-cde is free software: you can redistribute it and/or modify
 %     it under the terms of the GNU General Public License as published by
